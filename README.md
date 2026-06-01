@@ -27,6 +27,7 @@ dependencies {
     implementation("com.github.anhngocnguyen1034.anhnn-components:privacy:1.0.0")
     implementation("com.github.anhngocnguyen1034.anhnn-components:feedback:1.0.0")
     implementation("com.github.anhngocnguyen1034.anhnn-components:rate:1.0.0")
+    implementation("com.github.anhngocnguyen1034.anhnn-components:exit:1.1.0")
 
     // Thư viện language (repo riêng):
     implementation("com.github.anhngocnguyen1034:anhnn-language:1.0.0")
@@ -166,6 +167,53 @@ Button(onClick = {
     Text("Đánh giá app")
 }
 ```
+
+---
+
+### :exit — Exit App Screen
+
+Màn xác nhận thoát app full-screen (giống `askExitApp` của Taymay ADX) nhưng thuần Compose
+và **độc lập hệ quảng cáo**. Tự bắt nút Back, hiện màn xác nhận, gọi `onExit` khi xác nhận.
+Quảng cáo (native/banner/bất kỳ) truyền qua slot nên gắn bao nhiêu cũng được.
+
+#### Sử dụng (1 dòng)
+
+```kotlin
+import com.anhnn.exit.ExitAppHandler
+
+@Composable
+fun HomeScreen() {
+    val activity = LocalContext.current as Activity
+    ExitAppHandler(
+        onExit = { activity.finish() },
+        appIcon = painterResource(R.mipmap.ic_launcher),   // tuỳ chọn — icon đầu màn
+        appName = stringResource(R.string.app_name),       // tuỳ chọn — tên app
+        title = "Thoát ứng dụng?",                         // tuỳ chọn
+        message = "Bạn có chắc muốn thoát?",               // tuỳ chọn
+        confirmText = "Thoát",                             // tuỳ chọn
+        dismissText = "Ở lại",                             // tuỳ chọn
+        topContent = { MyBannerAd() },                     // tuỳ chọn — slot cố định trên cùng
+        adContent = {                                      // tuỳ chọn — slot giữa, tự cuộn
+            MyNativeAd("exit_native_1")
+            MyNativeAd("exit_native_2")
+        },
+    )
+}
+```
+
+Đặt `ExitAppHandler` trong composable của màn muốn chặn Back (vd Home). Bỏ trống `topContent`/
+`adContent` thì màn không có quảng cáo. Màu sắc lấy từ `MaterialTheme.colorScheme` nên tự ăn theme.
+
+| Tham số | Kiểu | Bắt buộc | Mô tả |
+|---------|------|----------|-------|
+| `onExit` | `() -> Unit` | ✓ | Chạy khi user xác nhận thoát (vd `activity.finish()`) |
+| `enabled` | `Boolean` | ✗ | Bật/tắt chặn Back |
+| `appIcon` | `Painter?` | ✗ | Icon app ở đầu màn; null = ẩn |
+| `appName` | `String?` | ✗ | Tên app cạnh icon; null = ẩn |
+| `title` / `message` | `String` | ✗ | Tiêu đề / nội dung |
+| `confirmText` / `dismissText` | `String` | ✗ | Nhãn nút Thoát / Ở lại |
+| `topContent` | `@Composable () -> Unit` | ✗ | Slot cố định trên cùng (vd banner) |
+| `adContent` | `@Composable ColumnScope.() -> Unit` | ✗ | Slot quảng cáo giữa màn, tự cuộn |
 
 ---
 

@@ -1,7 +1,7 @@
 jdk:
   - openjdk17
 
-# Chỉ publish 3 module library — bỏ qua :app (demo app) để tránh
+# Chỉ publish các module library — bỏ qua :app (demo app) để tránh
 # resource linking error làm fail toàn bộ build.
 install:
-  - ./gradlew :feedback:publishToMavenLocal :rate:publishToMavenLocal :privacy:publishToMavenLocal -x test --no-daemon
+  - ./gradlew :feedback:publishToMavenLocal :rate:publishToMavenLocal :privacy:publishToMavenLocal :exit:publishToMavenLocal -x test --no-daemon
