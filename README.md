@@ -28,6 +28,7 @@ dependencies {
     implementation("com.github.anhngocnguyen1034.anhnn-components:feedback:1.0.0")
     implementation("com.github.anhngocnguyen1034.anhnn-components:rate:1.0.0")
     implementation("com.github.anhngocnguyen1034.anhnn-components:exit:1.1.0")
+    implementation("com.github.anhngocnguyen1034.anhnn-components:ads:1.2.0")
 
     // Thư viện language (repo riêng):
     implementation("com.github.anhngocnguyen1034:anhnn-language:1.0.0")
@@ -214,6 +215,80 @@ fun HomeScreen() {
 | `confirmText` / `dismissText` | `String` | ✗ | Nhãn nút Thoát / Ở lại |
 | `topContent` | `@Composable () -> Unit` | ✗ | Slot cố định trên cùng (vd banner) |
 | `adContent` | `@Composable ColumnScope.() -> Unit` | ✗ | Slot quảng cáo giữa màn, tự cuộn |
+
+---
+
+### :ads — AdMob Manager (nhanh & mượt)
+
+Quản lý quảng cáo AdMob theo phong cách thư viện **adx** của Taymay: **preload trước vào cache →
+lấy ra hiện ngay → tự nạp lại** cho lượt sau. Native + Interstitial được cache nên hiện tức thì;
+Banner load inline (nhẹ). Gộp sẵn **consent (UMP)** + init Mobile Ads SDK. Module **không phụ
+thuộc Firebase** — app tự bơm cấu hình (ad unit id, bật/tắt ads, cooldown) qua `AdsConfig`.
+
+#### Manifest (app tiêu thụ)
+
+App **bắt buộc** khai báo AdMob App ID, nếu không SDK crash khi init:
+
+```xml
+<meta-data
+    android:name="com.google.android.gms.ads.APPLICATION_ID"
+    android:value="ca-app-pub-XXXXXXXX~YYYYYYYY" />
+```
+
+#### Bước 1 — Khai báo cấu hình (1 lần)
+
+```kotlin
+import com.anhnn.ads.*
+
+// adFormat: app tự khai báo định dạng cho từng tên vị trí
+val formats = mapOf(
+    "splash_open" to AdFormat.INTERSTITIAL,
+    "exit_native" to AdFormat.NATIVE,
+    "exit_banner" to AdFormat.BANNER,
+)
+
+Ads.init(AdsConfig(
+    adsEnabled = { remoteConfig.adsEnabled() },          // vd đọc Remote Config
+    adUnitId   = { name -> remoteConfig.adUnitId(name) }, // map sang test/production
+    adFormat   = { name -> formats[name] },
+    interCooldownMs = { 30_000L },                        // tùy chọn
+))
+```
+
+#### Bước 2 — Consent + init SDK, rồi preload
+
+```kotlin
+// Trong Activity.onCreate
+Ads.start(this) {
+    // consent xong + MobileAds init xong:
+    Ads.preload(this, "splash_open", "exit_native", "exit_banner")
+}
+```
+
+#### Bước 3 — Dùng ad
+
+```kotlin
+// Interstitial: hiện nếu sẵn & qua cooldown; nếu chưa thì chạy tiếp NGAY (không chặn user)
+Ads.showInterstitial(activity, "home_tuvi") { navController.navigate("input") }
+
+// Native / Banner: composable tự lấy ad đã preload (hiện ngay), tự hủy đúng lifecycle
+NativeAd(adName = "exit_native")   // màu theo MaterialTheme.colorScheme
+BannerAd(adName = "exit_banner")
+```
+
+#### API
+
+| Hàm | Mô tả |
+|-----|-------|
+| `Ads.init(config)` | Khai báo `AdsConfig` (gọi 1 lần, trước mọi thao tác) |
+| `Ads.start(activity) { }` | Thu thập consent (UMP) + init Mobile Ads, xong gọi callback |
+| `Ads.preload(context, vararg names)` | Nạp trước vào cache theo định dạng từng tên |
+| `Ads.isInterstitialReady(name)` | true nếu interstitial đã load sẵn |
+| `Ads.showInterstitial(activity, name) { }` | Hiện nếu sẵn (+cooldown), không thì callback ngay + preload lại |
+| `Ads.canRequestAds(activity)` | true nếu đủ điều kiện request ad (consent) |
+| `Ads.clear()` | Hủy toàn bộ ad đang cache (vd khi mua gói no-ads) |
+| `NativeAd(adName, modifier)` | Composable native (cache-first, fallback inline, theme-aware) |
+| `BannerAd(adName, modifier)` | Composable banner adaptive (load inline, full-width khung) |
 
 ---
 

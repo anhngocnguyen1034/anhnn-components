@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -20,14 +22,41 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.anhnn.ads.AdFormat
+import com.anhnn.ads.Ads
+import com.anhnn.ads.AdsConfig
+import com.anhnn.ads.BannerAd
+import com.anhnn.ads.NativeAd
 import com.anhnn.feedback.FeedbackScreen
 import com.anhnn.privacy.PrivacyPolicyScreen
 import com.anhnn.rate.RateDialog
 import com.anhnn.rate.requestInAppReview
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // --- Cấu hình ads demo: toàn bộ dùng test unit của Google ---
+        Ads.init(
+            AdsConfig(
+                adsEnabled = { true },
+                adUnitId = { name ->
+                    when (DemoAds.formatOf(name)) {
+                        AdFormat.INTERSTITIAL -> "ca-app-pub-3940256099942544/1033173712"
+                        AdFormat.NATIVE -> "ca-app-pub-3940256099942544/2247696110"
+                        AdFormat.BANNER -> "ca-app-pub-3940256099942544/6300978111"
+                        null -> ""
+                    }
+                },
+                adFormat = { name -> DemoAds.formatOf(name) },
+            )
+        )
+        // Consent + init SDK xong thì preload sẵn để demo hiện tức thì.
+        Ads.start(this) {
+            Ads.preload(this, DemoAds.INTER, DemoAds.NATIVE)
+        }
+
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -45,19 +74,29 @@ class MainActivity : ComponentActivity() {
                             onBack = { screen = "home" }
                         )
                         else -> Column(
-                            modifier = Modifier.fillMaxSize().padding(24.dp),
-                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                                .padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text("anhnn-components Demo", style = MaterialTheme.typography.headlineSmall)
-                            Spacer(Modifier.height(32.dp))
                             Button(onClick = { screen = "privacy" }) { Text("Privacy Policy") }
-                            Spacer(Modifier.height(12.dp))
                             Button(onClick = { screen = "feedback" }) { Text("Feedback") }
-                            Spacer(Modifier.height(12.dp))
                             Button(onClick = {
                                 requestInAppReview(this@MainActivity) { showRateDialog = true }
                             }) { Text("Rate App") }
+
+                            Spacer(Modifier.height(16.dp))
+                            Text("Ads", style = MaterialTheme.typography.titleMedium)
+                            Button(onClick = {
+                                Ads.showInterstitial(this@MainActivity, DemoAds.INTER) { /* tiếp tục */ }
+                            }) { Text("Show Interstitial") }
+
+                            // Native ad đã preload -> hiện ngay.
+                            NativeAd(adName = DemoAds.NATIVE)
+                            BannerAd(adName = DemoAds.BANNER)
                         }
                     }
 
@@ -70,5 +109,19 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+}
+
+/** Khai báo các vị trí ad của demo + định dạng từng vị trí (app tự quản, module không cần biết). */
+private object DemoAds {
+    const val INTER = "demo_inter"
+    const val NATIVE = "demo_native"
+    const val BANNER = "demo_banner"
+
+    fun formatOf(name: String): AdFormat? = when (name) {
+        INTER -> AdFormat.INTERSTITIAL
+        NATIVE -> AdFormat.NATIVE
+        BANNER -> AdFormat.BANNER
+        else -> null
     }
 }
