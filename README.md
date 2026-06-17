@@ -28,7 +28,8 @@ dependencies {
     implementation("com.github.anhngocnguyen1034.anhnn-components:feedback:1.0.0")
     implementation("com.github.anhngocnguyen1034.anhnn-components:rate:1.0.0")
     implementation("com.github.anhngocnguyen1034.anhnn-components:exit:1.1.0")
-    implementation("com.github.anhngocnguyen1034.anhnn-components:ads:1.2.0")
+    // ⚠️ artifactId của module ads là dạng đầy đủ `anhnn-components-ads` (không phải `ads`):
+    implementation("com.github.anhngocnguyen1034.anhnn-components:anhnn-components-ads:1.2.0")
 
     // Thư viện language (repo riêng):
     implementation("com.github.anhngocnguyen1034:anhnn-language:1.0.0")
