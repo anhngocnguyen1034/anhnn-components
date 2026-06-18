@@ -39,9 +39,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
 /**
- * Bộ xử lý thoát app dùng-một-dòng (giống `askExitApp` của Taymay ADX), nhưng thuần Compose,
- * độc lập hệ quảng cáo, và hiển thị **một màn full-screen** (không phải dialog nhỏ) nên gắn
- * được nhiều quảng cáo.
+ * Bộ xử lý thoát app dùng-một-dòng, thuần Compose, độc lập hệ quảng cáo, và hiển thị
+ * **một màn full-screen** (không phải dialog nhỏ) nên gắn được nhiều quảng cáo.
  *
  * Tự bắt nút Back, hiện [ExitScreen] rồi gọi [onExit] khi user xác nhận. Quảng cáo truyền vào
  * qua slot [adContent] (nhận [ColumnScope]) — xếp bao nhiêu ad cũng được, vùng ad tự cuộn:

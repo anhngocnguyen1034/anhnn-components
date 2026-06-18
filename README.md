@@ -29,7 +29,7 @@ dependencies {
     implementation("com.github.anhngocnguyen1034.anhnn-components:rate:1.0.0")
     implementation("com.github.anhngocnguyen1034.anhnn-components:exit:1.1.0")
     // ⚠️ artifactId của module ads là dạng đầy đủ `anhnn-components-ads` (không phải `ads`):
-    implementation("com.github.anhngocnguyen1034.anhnn-components:anhnn-components-ads:1.2.0")
+    implementation("com.github.anhngocnguyen1034.anhnn-components:anhnn-components-ads:1.2.1")
 
     // Thư viện language (repo riêng):
     implementation("com.github.anhngocnguyen1034:anhnn-language:1.0.0")
@@ -174,8 +174,8 @@ Button(onClick = {
 
 ### :exit — Exit App Screen
 
-Màn xác nhận thoát app full-screen (giống `askExitApp` của Taymay ADX) nhưng thuần Compose
-và **độc lập hệ quảng cáo**. Tự bắt nút Back, hiện màn xác nhận, gọi `onExit` khi xác nhận.
+Màn xác nhận thoát app full-screen, thuần Compose và **độc lập hệ quảng cáo**. Tự bắt nút Back,
+hiện màn xác nhận, gọi `onExit` khi xác nhận.
 Quảng cáo (native/banner/bất kỳ) truyền qua slot nên gắn bao nhiêu cũng được.
 
 #### Sử dụng (1 dòng)
@@ -221,8 +221,8 @@ fun HomeScreen() {
 
 ### :ads — AdMob Manager (nhanh & mượt)
 
-Quản lý quảng cáo AdMob theo phong cách thư viện **adx** của Taymay: **preload trước vào cache →
-lấy ra hiện ngay → tự nạp lại** cho lượt sau. Native + Interstitial được cache nên hiện tức thì;
+Quản lý quảng cáo AdMob với cơ chế **preload trước vào cache → lấy ra hiện ngay → tự nạp lại**
+cho lượt sau. Native + Interstitial được cache nên hiện tức thì;
 Banner load inline (nhẹ). Gộp sẵn **consent (UMP)** + init Mobile Ads SDK. Module **không phụ
 thuộc Firebase** — app tự bơm cấu hình (ad unit id, bật/tắt ads, cooldown) qua `AdsConfig`.
 

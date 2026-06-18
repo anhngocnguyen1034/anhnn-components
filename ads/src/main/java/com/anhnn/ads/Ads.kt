@@ -5,9 +5,8 @@ import android.content.Context
 import com.google.android.gms.ads.MobileAds
 
 /**
- * Cổng vào duy nhất của hệ quảng cáo (theo phong cách thư viện adx của Taymay):
- * **preload trước vào cache → lúc cần lấy ra hiện ngay → tự nạp lại** cho lượt sau, nên cảm
- * giác nhanh & mượt.
+ * Cổng vào duy nhất của hệ quảng cáo: **preload trước vào cache → lúc cần lấy ra hiện ngay →
+ * tự nạp lại** cho lượt sau, nên cảm giác nhanh & mượt.
  *
  * Luồng dùng tối thiểu:
  * ```
