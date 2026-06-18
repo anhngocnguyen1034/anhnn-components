@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+      App tiêu thụ cần file google-services.json + plugin com.google.gms.google-services
+      để Firebase Analytics hoạt động. Nếu không, dùng AnalyticsConfig(firebaseEnabled = false)
+      và tự cấp sink riêng.
+    -->
+</manifest>

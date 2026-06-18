@@ -22,11 +22,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import android.util.Log
 import com.anhnn.ads.AdFormat
 import com.anhnn.ads.Ads
 import com.anhnn.ads.AdsConfig
 import com.anhnn.ads.BannerAd
 import com.anhnn.ads.NativeAd
+import com.anhnn.analytics.Analytics
+import com.anhnn.analytics.AnalyticsConfig
+import com.anhnn.analytics.AnalyticsSink
 import com.anhnn.feedback.FeedbackScreen
 import com.anhnn.privacy.PrivacyPolicyScreen
 import com.anhnn.rate.RateDialog
@@ -56,6 +60,17 @@ class MainActivity : ComponentActivity() {
         Ads.start(this) {
             Ads.preload(this, DemoAds.INTER, DemoAds.NATIVE)
         }
+
+        // Analytics demo: app demo không có google-services.json nên tắt Firebase, dùng sink Logcat.
+        Analytics.init(
+            this,
+            AnalyticsConfig(
+                firebaseEnabled = false,
+                extraSinks = listOf(AnalyticsSink { name, params ->
+                    Log.d("AnalyticsDemo", "$name $params")
+                }),
+            )
+        )
 
         setContent {
             MaterialTheme {
@@ -87,6 +102,12 @@ class MainActivity : ComponentActivity() {
                             Button(onClick = {
                                 requestInAppReview(this@MainActivity) { showRateDialog = true }
                             }) { Text("Rate App") }
+
+                            Spacer(Modifier.height(16.dp))
+                            Text("Analytics", style = MaterialTheme.typography.titleMedium)
+                            Button(onClick = {
+                                Analytics.logEvent("demo_button_click", mapOf("source" to "home"))
+                            }) { Text("Log Event (xem Logcat)") }
 
                             Spacer(Modifier.height(16.dp))
                             Text("Ads", style = MaterialTheme.typography.titleMedium)

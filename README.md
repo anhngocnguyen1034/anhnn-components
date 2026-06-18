@@ -30,6 +30,7 @@ dependencies {
     implementation("com.github.anhngocnguyen1034.anhnn-components:exit:1.1.0")
     // ⚠️ artifactId của module ads là dạng đầy đủ `anhnn-components-ads` (không phải `ads`):
     implementation("com.github.anhngocnguyen1034.anhnn-components:anhnn-components-ads:1.2.1")
+    implementation("com.github.anhngocnguyen1034.anhnn-components:anhnn-components-analytics:1.3.0")
 
     // Thư viện language (repo riêng):
     implementation("com.github.anhngocnguyen1034:anhnn-language:1.0.0")
@@ -290,6 +291,55 @@ BannerAd(adName = "exit_banner")
 | `Ads.clear()` | Hủy toàn bộ ad đang cache (vd khi mua gói no-ads) |
 | `NativeAd(adName, modifier)` | Composable native (cache-first, fallback inline, theme-aware) |
 | `BannerAd(adName, modifier)` | Composable banner adaptive (load inline, full-width khung) |
+
+---
+
+### :analytics — Event Tracking (hạ tầng dùng chung)
+
+**Hạ tầng** tracking dùng chung cho mọi app — module KHÔNG chứa event cụ thể. Mặc định bắn
+**Firebase Analytics**; app có thể thêm sink riêng (vd gửi backend) qua `AnalyticsConfig`. Mỗi app
+tự khai báo danh sách event của mình rồi gọi `Analytics.logEvent(...)`.
+
+> Cần `google-services.json` + plugin `com.google.gms.google-services` cho Firebase. Không có thì
+> dùng `AnalyticsConfig(firebaseEnabled = false)` + sink riêng.
+
+#### Sử dụng
+
+```kotlin
+import com.anhnn.analytics.*
+
+// 1. Khởi tạo 1 lần (Application.onCreate)
+Analytics.init(context)                                   // chỉ Firebase
+// hoặc thêm sink riêng:
+Analytics.init(context, AnalyticsConfig(
+    extraSinks = listOf(AnalyticsSink { name, params -> myBackend.send(name, params) })
+))
+
+// 2. screen_view tự động — đặt cạnh NavHost
+TrackScreenViews(navController)
+
+// 3. App tự định nghĩa event của mình rồi log
+object Events { const val CHART_CREATE = "chart_create" }
+Analytics.logEvent(Events.CHART_CREATE, mapOf("gender" to g, "lich_type" to t))
+
+// 4. User property + consent
+Analytics.setUserProperty("theme", "dark")
+Analytics.setEnabled(hasConsent)                          // tắt thu thập khi user từ chối
+```
+
+#### API
+
+| Hàm | Mô tả |
+|-----|-------|
+| `Analytics.init(context, config)` | Khởi tạo (Firebase + sink tùy chọn) |
+| `Analytics.logEvent(name, params)` | Ghi event; params hỗ trợ String/Long/Int/Double/Boolean |
+| `Analytics.setScreen(name)` | Ghi `screen_view` thủ công |
+| `Analytics.setUserProperty(key, value)` | Đặt user property |
+| `Analytics.setEnabled(value)` | Bật/tắt thu thập (gắn consent) |
+| `TrackScreenViews(navController)` | Composable tự bắn `screen_view` theo điều hướng |
+
+Tên event/khóa tự chuẩn hóa theo ràng buộc Firebase (snake_case, cắt độ dài). **Không log PII** —
+chỉ enum/boolean (app tự đảm bảo).
 
 ---
 

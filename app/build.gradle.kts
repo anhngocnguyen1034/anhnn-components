@@ -30,6 +30,7 @@ dependencies {
     implementation(project(":rate"))
     implementation(project(":exit"))
     implementation(project(":ads"))
+    implementation(project(":analytics"))
 
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.core:core-ktx:1.17.0")

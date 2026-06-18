@@ -4,4 +4,4 @@ jdk:
 # Chỉ publish các module library — bỏ qua :app (demo app) để tránh
 # resource linking error làm fail toàn bộ build.
 install:
-  - ./gradlew :feedback:publishToMavenLocal :rate:publishToMavenLocal :privacy:publishToMavenLocal :exit:publishToMavenLocal :ads:publishToMavenLocal -x test --no-daemon
+  - ./gradlew :feedback:publishToMavenLocal :rate:publishToMavenLocal :privacy:publishToMavenLocal :exit:publishToMavenLocal :ads:publishToMavenLocal :analytics:publishToMavenLocal -x test --no-daemon
