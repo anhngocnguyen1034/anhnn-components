@@ -1,6 +1,7 @@
 package com.anhnn.ads
 
 import android.app.Activity
+import android.app.Application
 import android.content.Context
 import com.google.android.gms.ads.MobileAds
 
@@ -61,6 +62,26 @@ object Ads {
      */
     fun showInterstitial(activity: Activity, adName: String, onClosed: () -> Unit) {
         AdManager.showInterstitial(activity, adName, onClosed)
+    }
+
+    /** true nếu App Open [adName] đã load sẵn & chưa hết hạn (gọi [showAppOpen] sẽ hiện ngay). */
+    fun isAppOpenReady(adName: String): Boolean = AdManager.isAppOpenReady(adName)
+
+    /**
+     * Hiện App Open [adName] nếu đủ điều kiện (đã sẵn, chưa hết hạn, không chồng full-screen khác,
+     * qua cooldown), sau đó gọi [onClosed]; nếu không thì gọi [onClosed] ngay (không chặn user).
+     */
+    fun showAppOpen(activity: Activity, adName: String, onClosed: () -> Unit = {}) {
+        AdManager.showAppOpen(activity, adName, onClosed)
+    }
+
+    /**
+     * Bật quảng cáo **return-to-app**: tự hiện App Open [adName] mỗi khi người dùng quay lại app
+     * từ background (bỏ qua lần mở đầu tiên). Gọi 1 lần, vd trong `Application.onCreate`.
+     * Lưu ý: phải [init] trước và App Open chỉ load sau khi SDK đã khởi tạo qua [start].
+     */
+    fun setupAppOpen(application: Application, adName: String) {
+        AppOpenManager.register(application, adName)
     }
 
     /** true nếu đã đủ điều kiện request ad (consent obtained / không bắt buộc). */
