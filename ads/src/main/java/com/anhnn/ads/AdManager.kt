@@ -145,6 +145,7 @@ internal object AdManager {
                     slot.ad = loaded
                     slot.loadedAt = System.currentTimeMillis()
                     slot.loading = false
+                    Log.d(TAG, "[$adName] app open loaded")
                 }
 
                 override fun onAdFailedToLoad(error: LoadAdError) {
@@ -162,20 +163,26 @@ internal object AdManager {
      * user) và preload cho lượt sau.
      */
     fun showAppOpen(activity: Activity, adName: String, onClosed: () -> Unit) {
-        if (!enabled() || showingFullScreen) {
+        if (!enabled()) {
+            Log.d(TAG, "[$adName] app open skip: ads disabled")
             onClosed()
             return
         }
+        if (showingFullScreen) {
+            Log.d(TAG, "[$adName] app open skip: another full-screen ad showing")
+            onClosed()
+            return
+        }
+        // App Open KHÔNG bị chặn bởi cooldown của interstitial — quay lại app thì nên hiện ngay.
+        // Việc chống chồng đã có cờ showingFullScreen lo; tần suất do Google kiểm soát.
         val slot = AdCache.appOpen(adName)
         val now = System.currentTimeMillis()
         val ad = slot.ad
-        val expired = now - slot.loadedAt >= APP_OPEN_EXPIRY_MS
-        val inCooldown = now - lastInterShownAt < (config?.interCooldownMs() ?: 30_000L)
-        if (ad == null || expired || inCooldown) {
-            if (ad == null || expired) {
-                slot.ad = null
-                preloadAppOpen(activity, adName)
-            }
+        val expired = ad != null && now - slot.loadedAt >= APP_OPEN_EXPIRY_MS
+        if (ad == null || expired) {
+            Log.d(TAG, "[$adName] app open not ready (loaded=${ad != null}, expired=$expired) -> preload")
+            slot.ad = null
+            preloadAppOpen(activity, adName)
             onClosed()
             return
         }
