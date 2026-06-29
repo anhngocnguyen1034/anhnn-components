@@ -7,6 +7,8 @@ import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -40,12 +42,14 @@ private data class NativeAdColors(
  * load inline (1 lần). Lấy ad ra cũng tự kích hoạt nạp lượt kế (auto-reload) nên lần sau lại
  * tức thì. Màu nền/chữ/nút lấy từ [MaterialTheme.colorScheme] nên hợp mọi theme.
  *
- * Tắt ads / chưa init / load fail → composable rỗng (không chiếm chỗ).
+ * Trong lúc đang load hiển thị **khung shimmer** (chiếm sẵn chỗ → không giật layout) rồi
+ * **crossfade** sang ad thật khi sẵn sàng. Tắt ads / chưa init / load fail → composable rỗng.
  */
 @Composable
 fun NativeAd(adName: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var nativeAd by remember { mutableStateOf<GmsNativeAd?>(null) }
+    var loading by remember { mutableStateOf(true) }
 
     val cs = MaterialTheme.colorScheme
     val colors = remember(cs.surface, cs.onSurface, cs.primary, cs.onPrimary) {
@@ -63,12 +67,13 @@ fun NativeAd(adName: String, modifier: Modifier = Modifier) {
         val cached = AdManager.acquireNative(context, adName)
         if (cached != null) {
             nativeAd = cached
+            loading = false
         } else {
             AdManager.loadNativeNow(
                 context = context,
                 adName = adName,
-                onLoaded = { nativeAd = it },
-                onFailed = { /* để rỗng */ },
+                onLoaded = { nativeAd = it; loading = false },
+                onFailed = { loading = false },
             )
         }
         onDispose {
@@ -78,14 +83,24 @@ fun NativeAd(adName: String, modifier: Modifier = Modifier) {
         }
     }
 
-    val ad = nativeAd ?: return
-    AndroidView(
+    Crossfade(
+        targetState = nativeAd,
+        animationSpec = tween(300),
         modifier = modifier.fillMaxWidth(),
-        factory = { ctx ->
-            LayoutInflater.from(ctx).inflate(R.layout.anhnn_native_ad, null) as NativeAdView
-        },
-        update = { adView -> bindNativeAd(adView, ad, colors) }
-    )
+        label = "native-ad",
+    ) { ad ->
+        when {
+            ad != null -> AndroidView(
+                modifier = Modifier.fillMaxWidth(),
+                factory = { ctx ->
+                    LayoutInflater.from(ctx).inflate(R.layout.anhnn_native_ad, null) as NativeAdView
+                },
+                update = { adView -> bindNativeAd(adView, ad, colors) },
+            )
+            loading -> NativeAdSkeleton()
+            // else: load fail -> rỗng
+        }
+    }
 }
 
 private fun bindNativeAd(adView: NativeAdView, ad: GmsNativeAd, colors: NativeAdColors) {
