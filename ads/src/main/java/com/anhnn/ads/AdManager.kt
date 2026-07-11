@@ -9,10 +9,13 @@ import com.google.android.gms.ads.AdLoader
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.OnUserEarnedRewardListener
 import com.google.android.gms.ads.appopen.AppOpenAd
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.gms.ads.nativead.NativeAd as GmsNativeAd
+import com.google.android.gms.ads.rewarded.RewardedAd
+import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 
 /**
  * Bộ máy nạp/hiện quảng cáo: preload theo định dạng → cache → hiện ngay → tự nạp lại.
@@ -49,6 +52,7 @@ internal object AdManager {
                 AdFormat.INTERSTITIAL -> preloadInterstitial(context, name)
                 AdFormat.NATIVE -> preloadNative(context, name)
                 AdFormat.APP_OPEN -> preloadAppOpen(context, name)
+                AdFormat.REWARDED -> preloadRewarded(context, name)
                 AdFormat.BANNER -> Unit // banner load inline trong BannerAd composable
                 null -> Log.w(TAG, "preload: unknown adName '$name'")
             }
@@ -208,6 +212,81 @@ internal object AdManager {
             }
         }
         ad.show(activity)
+    }
+
+    // ---------------------------------------------------------------- rewarded
+
+    fun isRewardedReady(adName: String): Boolean = AdCache.rewarded(adName).ad != null
+
+    private fun preloadRewarded(context: Context, adName: String) {
+        if (!enabled()) return
+        val slot = AdCache.rewarded(adName)
+        if (slot.ad != null || slot.loading) return
+        slot.loading = true
+        RewardedAd.load(
+            context.applicationContext,
+            unitId(adName),
+            AdRequest.Builder().build(),
+            object : RewardedAdLoadCallback() {
+                override fun onAdLoaded(loaded: RewardedAd) {
+                    slot.ad = loaded
+                    slot.loading = false
+                }
+
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    Log.w(TAG, "[$adName] rewarded load failed: ${error.message}")
+                    slot.ad = null
+                    slot.loading = false
+                }
+            }
+        )
+    }
+
+    /**
+     * Hiện Rewarded [adName]. [onReward] CHỈ được gọi khi người dùng xem đủ và nhận thưởng;
+     * [onClosed] luôn được gọi khi ad đóng (hoặc khi không hiện được). Nếu chưa sẵn/không bật
+     * thì preload cho lượt sau rồi gọi [onClosed] ngay (KHÔNG phát thưởng).
+     */
+    fun showRewarded(
+        activity: Activity,
+        adName: String,
+        onReward: () -> Unit,
+        onClosed: () -> Unit,
+    ) {
+        if (!enabled()) {
+            onClosed()
+            return
+        }
+        val slot = AdCache.rewarded(adName)
+        val ad = slot.ad
+        if (ad == null || showingFullScreen) {
+            if (ad == null) preloadRewarded(activity, adName)
+            onClosed()
+            return
+        }
+        var earned = false
+        ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+            override fun onAdShowedFullScreenContent() {
+                showingFullScreen = true
+            }
+
+            override fun onAdDismissedFullScreenContent() {
+                slot.ad = null
+                showingFullScreen = false
+                preloadRewarded(activity, adName)
+                if (earned) onReward()
+                onClosed()
+            }
+
+            override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                Log.w(TAG, "[$adName] rewarded show failed: ${error.message}")
+                slot.ad = null
+                showingFullScreen = false
+                preloadRewarded(activity, adName)
+                onClosed()
+            }
+        }
+        ad.show(activity, OnUserEarnedRewardListener { earned = true })
     }
 
     // ---------------------------------------------------------------- native

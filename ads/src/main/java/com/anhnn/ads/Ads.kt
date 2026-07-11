@@ -64,6 +64,24 @@ object Ads {
         AdManager.showInterstitial(activity, adName, onClosed)
     }
 
+    /** true nếu Rewarded [adName] đã load sẵn (gọi [showRewarded] sẽ hiện ngay). */
+    fun isRewardedReady(adName: String): Boolean = AdManager.isRewardedReady(adName)
+
+    /**
+     * Hiện Rewarded [adName]. [onReward] CHỈ gọi khi người dùng xem đủ và nhận thưởng;
+     * [onClosed] luôn gọi khi ad đóng (hoặc khi không hiện được). Nếu chưa sẵn / không bật
+     * thì preload cho lượt sau rồi gọi [onClosed] ngay, KHÔNG phát thưởng — nên kiểm tra
+     * [isRewardedReady] để bật/tắt nút "Xem để nhận".
+     */
+    fun showRewarded(
+        activity: Activity,
+        adName: String,
+        onReward: () -> Unit,
+        onClosed: () -> Unit = {},
+    ) {
+        AdManager.showRewarded(activity, adName, onReward, onClosed)
+    }
+
     /** true nếu App Open [adName] đã load sẵn & chưa hết hạn (gọi [showAppOpen] sẽ hiện ngay). */
     fun isAppOpenReady(adName: String): Boolean = AdManager.isAppOpenReady(adName)
 

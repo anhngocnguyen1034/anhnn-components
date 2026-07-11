@@ -3,6 +3,7 @@ package com.anhnn.ads
 import com.google.android.gms.ads.appopen.AppOpenAd
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.nativead.NativeAd
+import com.google.android.gms.ads.rewarded.RewardedAd
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -22,15 +23,18 @@ internal object AdCache {
     private val interstitial = ConcurrentHashMap<String, Slot<InterstitialAd>>()
     private val native = ConcurrentHashMap<String, Slot<NativeAd>>()
     private val appOpen = ConcurrentHashMap<String, Slot<AppOpenAd>>()
+    private val rewarded = ConcurrentHashMap<String, Slot<RewardedAd>>()
 
     fun inter(adName: String): Slot<InterstitialAd> = interstitial.getOrPut(adName) { Slot() }
     fun nat(adName: String): Slot<NativeAd> = native.getOrPut(adName) { Slot() }
     fun appOpen(adName: String): Slot<AppOpenAd> = appOpen.getOrPut(adName) { Slot() }
+    fun rewarded(adName: String): Slot<RewardedAd> = rewarded.getOrPut(adName) { Slot() }
 
     /** Hủy & xóa toàn bộ ad đang giữ. */
     fun clear() {
         interstitial.values.forEach { it.ad = null; it.loading = false }
         native.values.forEach { it.ad?.destroy(); it.ad = null; it.loading = false }
         appOpen.values.forEach { it.ad = null; it.loading = false }
+        rewarded.values.forEach { it.ad = null; it.loading = false }
     }
 }

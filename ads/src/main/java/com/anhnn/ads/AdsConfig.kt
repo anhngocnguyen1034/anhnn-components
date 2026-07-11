@@ -1,7 +1,7 @@
 package com.anhnn.ads
 
 /** Định dạng quảng cáo — quyết định kho cache + cách nạp/hiện của từng vị trí. */
-enum class AdFormat { INTERSTITIAL, NATIVE, BANNER, APP_OPEN }
+enum class AdFormat { INTERSTITIAL, NATIVE, BANNER, APP_OPEN, REWARDED }
 
 /**
  * Cấu hình quảng cáo do **app tiêu thụ** cung cấp khi gọi [Ads.init]. Module không phụ thuộc
