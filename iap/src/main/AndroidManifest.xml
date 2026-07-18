@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Module :iap — Google Play Billing wrapper (Firebase-/app-agnostic).
+  Quyền `com.android.vending.BILLING` được thư viện billing tự merge vào, không cần khai báo ở đây.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" />

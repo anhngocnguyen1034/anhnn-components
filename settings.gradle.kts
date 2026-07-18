@@ -14,4 +14,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "anhnn-components"
-include(":privacy", ":feedback", ":rate", ":exit", ":ads", ":analytics", ":app")
+include(":privacy", ":feedback", ":rate", ":exit", ":ads", ":analytics", ":iap", ":app")
