@@ -60,18 +60,44 @@ private fun ShimmerBlock(modifier: Modifier, brush: Brush, radius: Int = 6) {
     Box(modifier.clip(RoundedCornerShape(radius.dp)).background(brush))
 }
 
-/** Khung skeleton cho native ad: icon + headline/advertiser + media + nút CTA. */
+/**
+ * Khung skeleton cho native ad — khớp template của [size] để không nhảy layout khi ad hiện ra:
+ * [NativeAdSize.MEDIUM] có ảnh media + CTA full-width, [NativeAdSize.SMALL] chỉ 1 dòng ngang.
+ */
 @Composable
-internal fun NativeAdSkeleton(modifier: Modifier = Modifier) {
+internal fun NativeAdSkeleton(
+    modifier: Modifier = Modifier,
+    size: NativeAdSize = NativeAdSize.MEDIUM,
+) {
     val cs = MaterialTheme.colorScheme
     val brush = shimmerBrush()
+    val cardModifier = modifier
+        .fillMaxWidth()
+        .clip(RoundedCornerShape(16.dp))
+        .background(cs.surface)
+        .border(1.dp, cs.primary.copy(alpha = 0.16f), RoundedCornerShape(16.dp))
+
+    if (size == NativeAdSize.SMALL) {
+        Row(
+            modifier = cardModifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            ShimmerBlock(Modifier.size(44.dp), brush, radius = 8)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                ShimmerBlock(Modifier.fillMaxWidth(0.75f).height(13.dp), brush, radius = 4)
+                ShimmerBlock(Modifier.fillMaxWidth(0.5f).height(11.dp), brush, radius = 4)
+            }
+            ShimmerBlock(Modifier.size(width = 76.dp, height = 38.dp), brush, radius = 8)
+        }
+        return
+    }
+
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(cs.surface)
-            .border(1.dp, cs.primary.copy(alpha = 0.16f), RoundedCornerShape(16.dp))
-            .padding(14.dp),
+        modifier = cardModifier.padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Row(

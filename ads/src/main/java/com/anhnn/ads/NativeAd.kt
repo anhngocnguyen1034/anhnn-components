@@ -35,8 +35,17 @@ private data class NativeAdColors(
     val onPrimary: Int,
 )
 
+/** Kiểu template của [NativeAd]. */
+enum class NativeAdSize {
+    /** Gọn 1 dòng: icon + headline + body 1 dòng + nút CTA bên phải (~66dp, không có ảnh media). */
+    SMALL,
+
+    /** Card đầy đủ: icon + headline + body + ảnh media 150dp + nút CTA full-width (~300dp). */
+    MEDIUM,
+}
+
 /**
- * Native ad dạng card cho vị trí [adName].
+ * Native ad dạng card cho vị trí [adName], template theo [size].
  *
  * **Nhanh & mượt**: ưu tiên lấy ad đã preload sẵn trong cache → hiện ngay; nếu cache trống mới
  * load inline (1 lần). Lấy ad ra cũng tự kích hoạt nạp lượt kế (auto-reload) nên lần sau lại
@@ -46,7 +55,11 @@ private data class NativeAdColors(
  * **crossfade** sang ad thật khi sẵn sàng. Tắt ads / chưa init / load fail → composable rỗng.
  */
 @Composable
-fun NativeAd(adName: String, modifier: Modifier = Modifier) {
+fun NativeAd(
+    adName: String,
+    modifier: Modifier = Modifier,
+    size: NativeAdSize = NativeAdSize.MEDIUM,
+) {
     val context = LocalContext.current
     var nativeAd by remember { mutableStateOf<GmsNativeAd?>(null) }
     var loading by remember { mutableStateOf(true) }
@@ -93,11 +106,15 @@ fun NativeAd(adName: String, modifier: Modifier = Modifier) {
             ad != null -> AndroidView(
                 modifier = Modifier.fillMaxWidth(),
                 factory = { ctx ->
-                    LayoutInflater.from(ctx).inflate(R.layout.anhnn_native_ad, null) as NativeAdView
+                    val layout = when (size) {
+                        NativeAdSize.SMALL -> R.layout.anhnn_native_ad_small
+                        NativeAdSize.MEDIUM -> R.layout.anhnn_native_ad
+                    }
+                    LayoutInflater.from(ctx).inflate(layout, null) as NativeAdView
                 },
                 update = { adView -> bindNativeAd(adView, ad, colors) },
             )
-            loading -> NativeAdSkeleton()
+            loading -> NativeAdSkeleton(size = size)
             // else: load fail -> rỗng
         }
     }
@@ -108,7 +125,7 @@ private fun bindNativeAd(adView: NativeAdView, ad: GmsNativeAd, colors: NativeAd
     val advertiser = adView.findViewById<TextView>(R.id.ad_advertiser)
     val body = adView.findViewById<TextView>(R.id.ad_body)
     val icon = adView.findViewById<ImageView>(R.id.ad_app_icon)
-    val media = adView.findViewById<MediaView>(R.id.ad_media)
+    val media = adView.findViewById<MediaView?>(R.id.ad_media)
     val cta = adView.findViewById<Button>(R.id.ad_call_to_action)
     val adBadge = adView.findViewById<TextView>(R.id.ad_badge)
 
@@ -143,8 +160,11 @@ private fun bindNativeAd(adView: NativeAdView, ad: GmsNativeAd, colors: NativeAd
         adView.iconView = icon
     }
 
-    adView.mediaView = media
-    ad.mediaContent?.let { media.mediaContent = it }
+    // Template SMALL không có MediaView.
+    if (media != null) {
+        adView.mediaView = media
+        ad.mediaContent?.let { media.mediaContent = it }
+    }
 
     if (ad.callToAction.isNullOrEmpty()) {
         cta.visibility = View.GONE
