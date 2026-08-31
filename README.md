@@ -25,8 +25,8 @@ dependencyResolutionManagement {
 dependencies {
     // Chọn module cần thiết:
     implementation("com.github.anhngocnguyen1034.anhnn-components:privacy:1.0.0")
-    implementation("com.github.anhngocnguyen1034.anhnn-components:feedback:1.0.0")
-    implementation("com.github.anhngocnguyen1034.anhnn-components:rate:1.0.0")
+    implementation("com.github.anhngocnguyen1034.anhnn-components:feedback:1.9.0")
+    implementation("com.github.anhngocnguyen1034.anhnn-components:rate:1.9.0")
     implementation("com.github.anhngocnguyen1034.anhnn-components:exit:1.1.0")
     // ⚠️ artifactId của module ads là dạng đầy đủ `anhnn-components-ads` (không phải `ads`):
     implementation("com.github.anhngocnguyen1034.anhnn-components:anhnn-components-ads:1.2.1")
@@ -101,14 +101,45 @@ fun MyApp() {
 
 Nút **Send** chỉ enabled khi người dùng đã nhập nội dung. Khi nhấn, mở email client qua `Intent.ACTION_SENDTO`.
 
+#### `FeedbackDialog` — dialog nổi, chọn chủ đề bằng chip
+
+Khác `FeedbackScreen` (một màn hình đầy đủ, gửi email): đây là dialog nổi, trả nội dung về qua
+`onSubmit` nên app tự quyết định gửi đi đâu (email, backend, analytics…). Gửi xong hiện màn cảm ơn
+rồi tự đóng.
+
+```kotlin
+import com.anhnn.feedback.FeedbackDialog
+
+if (showFeedback) {
+    FeedbackDialog(
+        onSubmit = { text -> Analytics.logEvent("submit_feedback", mapOf("content" to text)) },
+        onDismiss = { showFeedback = false },
+    )
+}
+```
+
+Nội dung trả về đã gộp chủ đề đã chọn vào đầu chuỗi: `"[UI Design, Ads] chữ user nhập"`.
+
+| Tham số | Kiểu | Bắt buộc | Mô tả |
+|---------|------|----------|-------|
+| `onSubmit` | `(String) -> Unit` | ✓ | Nhận nội dung đã gộp; chỉ gọi khi khác rỗng |
+| `onDismiss` | `() -> Unit` | ✓ | Đóng dialog |
+| `title` / `subtitle` | `String` / `String?` | ✗ | Tiêu đề và dòng mô tả (`subtitle = null` để ẩn) |
+| `tags` | `List<String>` | ✗ | Chủ đề chọn nhanh (mặc định `DefaultFeedbackTags`); rỗng = ẩn chip |
+| `hint` / `submitText` | `String` | ✗ | Placeholder ô nhập và nhãn nút gửi |
+| `dismissOnOutside` | `Boolean` | ✗ | Cho phép đóng khi bấm ra ngoài / Back (mặc định `true`) |
+| `thanksTitle` | `String?` | ✗ | `null` = gửi xong đóng luôn, không hiện màn cảm ơn |
+| `thanksMessage` / `thanksDurationMillis` | `String` / `Long` | ✗ | Nội dung và thời lượng màn cảm ơn (mặc định 1500ms) |
+
 ---
 
 ### :rate — In-App Review & Rate Dialog
 
-Hai cách để yêu cầu người dùng đánh giá app:
+Ba cách để yêu cầu người dùng đánh giá app:
 
 1. **`requestInAppReview`** — Google Play In-App Review API (native, không rời app)
-2. **`RateDialog`** — Dialog fallback mở Play Store khi In-App Review không khả dụng
+2. **`RateAndFeedbackDialog`** — dialog chấm điểm 2 nhánh: chấm thấp thì thu góp ý trong app, chấm cao mới đẩy ra Store
+3. **`RateDialog`** — Dialog fallback mở Play Store khi In-App Review không khả dụng
 
 #### `requestInAppReview` (khuyến nghị)
 
@@ -126,6 +157,62 @@ requestInAppReview(
 ```
 
 > **Lưu ý:** Google Play giới hạn số lần hiển thị In-App Review. Không gọi hàm này mỗi lần mở app — chỉ gọi sau khi người dùng hoàn thành một hành động có giá trị (ví dụ: dùng app 5 lần, hoàn thành task quan trọng).
+
+#### `RateAndFeedbackDialog` — chấm điểm 2 nhánh (giữ điểm Store)
+
+Chỉ user hài lòng (từ `goodRateThreshold` trở lên, mặc định 4/5) mới thấy nút mở Store; user chưa
+hài lòng thì chọn chủ đề + nhập góp ý, nội dung trả về qua `onSubmitFeedback` rồi hiện màn cảm ơn
+và tự đóng. Nhờ vậy phản hồi tiêu cực về thẳng team thay vì lên Store.
+
+```kotlin
+import com.anhnn.rate.RateAndFeedbackDialog
+import com.anhnn.rate.openPlayStore
+import com.anhnn.rate.requestInAppReview
+import com.anhnn.rate.setRated
+import com.anhnn.rate.shouldAskRate
+
+var showRate by rememberSaveable { mutableStateOf(shouldAskRate(context)) }
+
+if (showRate) {
+    RateAndFeedbackDialog(
+        onRate = {
+            setRated(context)
+            requestInAppReview(activity) { openPlayStore(activity) }
+            showRate = false
+        },
+        onSubmitFeedback = { text -> Analytics.logEvent("submit_feedback", mapOf("content" to text)) },
+        onDismiss = { showRate = false },
+    )
+}
+```
+
+| Tham số | Kiểu | Bắt buộc | Mô tả |
+|---------|------|----------|-------|
+| `onRate` | `() -> Unit` | ✓ | Chạy khi user chấm cao và bấm nút Store |
+| `onDismiss` | `() -> Unit` | ✓ | Đóng dialog |
+| `onSubmitFeedback` | `(String) -> Unit` | ✗ | Nhận góp ý đã gộp chủ đề khi user chấm thấp |
+| `goodRateThreshold` | `Int` | ✗ | Mức coi là hài lòng (mặc định `4`) |
+| `emojis` / `labels` | `List<String>` | ✗ | Emoji và nhãn của 5 mức (`DefaultRateEmojis` / `DefaultRateLabels`) |
+| `tags` | `List<String>` | ✗ | Chủ đề hiện khi chấm thấp; rỗng = ẩn chip |
+| `title` / `lowRateTitle` | `String` | ✗ | Tiêu đề khi chấm cao / chấm thấp |
+| `hint` / `sendText` / `rateText` | `String` | ✗ | Placeholder ô nhập, nhãn nút gửi, nhãn nút Store |
+| `dismissText` | `String?` | ✗ | Nhãn nút bỏ qua; `null` = ẩn (bắt buộc chọn) |
+| `thanksTitle` / `thanksMessage` / `thanksDurationMillis` | | ✗ | Màn cảm ơn sau khi gửi góp ý |
+
+#### Gate — hỏi đúng lúc
+
+`shouldAskRate` tự đếm số lần mở app và trả `false` khi chưa đủ điều kiện, nên gọi thẳng ở chỗ cần:
+
+```kotlin
+shouldAskRate(context, minSessions = 2, oncePerSession = true)  // → Boolean
+isRated(context)                // user đã đánh giá chưa
+setRated(context)               // đánh dấu đã đánh giá (gọi trong onRate)
+resetRateState(context)         // xoá trạng thái, hữu ích khi test
+openPlayStore(context)          // mở Play Store (market:// → fallback trình duyệt)
+```
+
+Mặc định `minSessions = 2` nên **lần cài đặt đầu tiên không bao giờ bị hỏi**, và mỗi lần chạy app
+chỉ hỏi tối đa một lần. Sau khi `setRated` thì không hỏi lại nữa.
 
 #### `RateDialog` (fallback)
 

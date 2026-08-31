@@ -31,10 +31,14 @@ import com.anhnn.ads.NativeAd
 import com.anhnn.analytics.Analytics
 import com.anhnn.analytics.AnalyticsConfig
 import com.anhnn.analytics.AnalyticsSink
+import com.anhnn.feedback.FeedbackDialog
 import com.anhnn.feedback.FeedbackScreen
 import com.anhnn.privacy.PrivacyPolicyScreen
+import com.anhnn.rate.RateAndFeedbackDialog
 import com.anhnn.rate.RateDialog
+import com.anhnn.rate.openPlayStore
 import com.anhnn.rate.requestInAppReview
+import com.anhnn.rate.setRated
 
 class MainActivity : ComponentActivity() {
 
@@ -50,6 +54,8 @@ class MainActivity : ComponentActivity() {
                         AdFormat.INTERSTITIAL -> "ca-app-pub-3940256099942544/1033173712"
                         AdFormat.NATIVE -> "ca-app-pub-3940256099942544/2247696110"
                         AdFormat.BANNER -> "ca-app-pub-3940256099942544/6300978111"
+                        AdFormat.REWARDED -> "ca-app-pub-3940256099942544/5224354917"
+                        AdFormat.APP_OPEN -> "ca-app-pub-3940256099942544/9257395921"
                         null -> ""
                     }
                 },
@@ -77,6 +83,8 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     var screen by remember { mutableStateOf("home") }
                     var showRateDialog by remember { mutableStateOf(false) }
+                    var showRateFeedback by remember { mutableStateOf(false) }
+                    var showFeedbackDialog by remember { mutableStateOf(false) }
 
                     when (screen) {
                         "privacy" -> PrivacyPolicyScreen(
@@ -102,6 +110,8 @@ class MainActivity : ComponentActivity() {
                             Button(onClick = {
                                 requestInAppReview(this@MainActivity) { showRateDialog = true }
                             }) { Text("Rate App") }
+                            Button(onClick = { showRateFeedback = true }) { Text("Rate + Feedback Dialog") }
+                            Button(onClick = { showFeedbackDialog = true }) { Text("Feedback Dialog") }
 
                             Spacer(Modifier.height(16.dp))
                             Text("Analytics", style = MaterialTheme.typography.titleMedium)
@@ -125,6 +135,32 @@ class MainActivity : ComponentActivity() {
                         RateDialog(
                             packageName = packageName,
                             onDismiss = { showRateDialog = false }
+                        )
+                    }
+
+                    // Chấm thấp -> thu góp ý trong app; chấm cao -> đẩy ra Store.
+                    if (showRateFeedback) {
+                        RateAndFeedbackDialog(
+                            onRate = {
+                                setRated(this@MainActivity)
+                                requestInAppReview(this@MainActivity) {
+                                    openPlayStore(this@MainActivity)
+                                }
+                                showRateFeedback = false
+                            },
+                            onSubmitFeedback = { text ->
+                                Analytics.logEvent("submit_feedback", mapOf("content" to text))
+                            },
+                            onDismiss = { showRateFeedback = false },
+                        )
+                    }
+
+                    if (showFeedbackDialog) {
+                        FeedbackDialog(
+                            onSubmit = { text ->
+                                Analytics.logEvent("submit_feedback", mapOf("content" to text))
+                            },
+                            onDismiss = { showFeedbackDialog = false },
                         )
                     }
                 }

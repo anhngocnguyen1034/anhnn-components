@@ -1,7 +1,5 @@
 package com.anhnn.rate
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,15 +33,7 @@ fun RateDialog(
         text = { Text(message) },
         confirmButton = {
             TextButton(onClick = {
-                val uri = Uri.parse("market://details?id=$packageName")
-                val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY or Intent.FLAG_ACTIVITY_NEW_DOCUMENT)
-                }
-                runCatching { context.startActivity(intent) }.onFailure {
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$packageName"))
-                    )
-                }
+                openPlayStore(context, packageName)
                 onDismiss()
             }) {
                 Text(confirmText)
