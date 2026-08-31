@@ -31,9 +31,12 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -45,8 +48,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -63,11 +64,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -126,6 +130,7 @@ val DefaultRateFeedbackTags: List<String> = listOf(
  * @param title                tiêu đề khi chưa chấm hoặc chấm cao.
  * @param lowRateTitle         tiêu đề khi chấm thấp.
  * @param hint                 placeholder ô nhập góp ý.
+ * @param maxChars             số ký tự tối đa của ô nhập; hiện bộ đếm ở góc dưới phải.
  * @param sendText             nhãn nút khi chấm thấp (gửi góp ý).
  * @param rateText             nhãn nút khi chấm cao (mở Store).
  * @param dismissText          nhãn nút bỏ qua; null = ẩn, dialog thành bắt buộc chọn.
@@ -146,6 +151,7 @@ fun RateAndFeedbackDialog(
     title: String = "How was your\nexperience with us?",
     lowRateTitle: String = "What is\nsomething we can improve?",
     hint: String = "Your feedback...",
+    maxChars: Int = 500,
     sendText: String = "Send",
     rateText: String = "Rate us on Google Play",
     dismissText: String? = "Maybe later",
@@ -195,6 +201,7 @@ fun RateAndFeedbackDialog(
                         text = text,
                         title = if (isLowRate) lowRateTitle else title,
                         hint = hint,
+                        maxChars = maxChars,
                         submitText = if (isLowRate) sendText else rateText,
                         dismissText = dismissText,
                         onRateChange = { rate = it },
@@ -237,6 +244,7 @@ private fun RateCard(
     text: String,
     title: String,
     hint: String,
+    maxChars: Int,
     submitText: String,
     dismissText: String?,
     onRateChange: (Int) -> Unit,
@@ -321,7 +329,12 @@ private fun RateCard(
                             }
                         }
                         Spacer(Modifier.height(12.dp))
-                        FeedbackField(value = text, hint = hint, onValueChange = onTextChange)
+                        FeedbackField(
+                    value = text,
+                    hint = hint,
+                    maxChars = maxChars,
+                    onValueChange = onTextChange,
+                )
                     }
                 }
 
@@ -525,32 +538,66 @@ private fun FeedbackChip(text: String, selected: Boolean, onClick: () -> Unit) {
     )
 }
 
-/** Ô nhập góp ý nền tonal, bo 16dp, viền nhạt để không "cắt" khối card. */
+/**
+ * Ô nhập góp ý: nền tonal, bo 16dp, chữ bám mép trên như một text area thật (không bị M3 căn
+ * giữa theo chiều dọc như [OutlinedTextField] khi đặt minLines), viền đổi màu khi focus mà
+ * **không đổi độ dày** nên chữ không nhích. Bộ đếm ký tự nằm gọn ở góc dưới phải, không chiếm
+ * thêm chiều cao.
+ */
 @Composable
-private fun FeedbackField(value: String, hint: String, onValueChange: (String) -> Unit) {
+private fun FeedbackField(
+    value: String,
+    hint: String,
+    maxChars: Int,
+    onValueChange: (String) -> Unit,
+) {
     val colors = MaterialTheme.colorScheme
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth(),
-        placeholder = {
-            Text(
-                text = hint,
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.onSurfaceVariant.copy(alpha = 0.7f),
-            )
-        },
-        textStyle = MaterialTheme.typography.bodyMedium,
-        shape = RoundedCornerShape(16.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = colors.surfaceVariant.copy(alpha = 0.35f),
-            unfocusedContainerColor = colors.surfaceVariant.copy(alpha = 0.35f),
-            unfocusedBorderColor = Color.Transparent,
-            focusedBorderColor = colors.primary,
-        ),
-        minLines = 3,
-        maxLines = 5,
+    val shape = RoundedCornerShape(16.dp)
+    var focused by remember { mutableStateOf(false) }
+    val borderColor by animateColorAsState(
+        targetValue = if (focused) colors.primary else colors.outlineVariant.copy(alpha = 0.5f),
+        label = "field-border",
     )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 108.dp)
+            .clip(shape)
+            .background(colors.surfaceVariant.copy(alpha = 0.35f))
+            .border(width = 1.5.dp, color = borderColor, shape = shape)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = { if (it.length <= maxChars) onValueChange(it) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+                .onFocusChanged { focused = it.isFocused },
+            textStyle = MaterialTheme.typography.bodyMedium.copy(color = colors.onSurface),
+            cursorBrush = SolidColor(colors.primary),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+            maxLines = 6,
+            decorationBox = { innerTextField ->
+                if (value.isEmpty()) {
+                    Text(
+                        text = hint,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurfaceVariant.copy(alpha = 0.7f),
+                    )
+                }
+                innerTextField()
+            },
+        )
+
+        Text(
+            text = "${value.length}/$maxChars",
+            style = MaterialTheme.typography.labelSmall,
+            color = if (value.length >= maxChars) colors.error else colors.onSurfaceVariant,
+            modifier = Modifier.align(Alignment.BottomEnd),
+        )
+    }
 }
 
 /** Nút hành động chính: cao 54dp, bo 16dp, chữ đậm. */

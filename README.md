@@ -128,6 +128,7 @@ Nội dung trả về đã gộp chủ đề đã chọn vào đầu chuỗi: `"
 | `headerEmoji` | `String?` | ✗ | Emoji trong huy hiệu tròn ở đầu dialog (mặc định `"💬"`); `null` = ẩn cả vùng đầu |
 | `tags` | `List<String>` | ✗ | Chủ đề chọn nhanh (mặc định `DefaultFeedbackTags`); rỗng = ẩn chip |
 | `hint` / `submitText` | `String` | ✗ | Placeholder ô nhập và nhãn nút gửi |
+| `maxChars` | `Int` | ✗ | Giới hạn ký tự ô nhập, có bộ đếm ở góc dưới phải (mặc định `500`) |
 | `dismissOnOutside` | `Boolean` | ✗ | Cho phép đóng khi bấm ra ngoài / Back (mặc định `true`) |
 | `thanksTitle` | `String?` | ✗ | `null` = gửi xong đóng luôn, không hiện màn cảm ơn |
 | `thanksMessage` / `thanksDurationMillis` | `String` / `Long` | ✗ | Nội dung và thời lượng màn cảm ơn (mặc định 1500ms) |
@@ -197,6 +198,7 @@ if (showRate) {
 | `tags` | `List<String>` | ✗ | Chủ đề hiện khi chấm thấp; rỗng = ẩn chip |
 | `title` / `lowRateTitle` | `String` | ✗ | Tiêu đề khi chấm cao / chấm thấp |
 | `hint` / `sendText` / `rateText` | `String` | ✗ | Placeholder ô nhập, nhãn nút gửi, nhãn nút Store |
+| `maxChars` | `Int` | ✗ | Giới hạn ký tự ô nhập, có bộ đếm ở góc dưới phải (mặc định `500`) |
 | `dismissText` | `String?` | ✗ | Nhãn nút bỏ qua; `null` = ẩn (bắt buộc chọn) |
 | `thanksTitle` / `thanksMessage` / `thanksDurationMillis` | | ✗ | Màn cảm ơn sau khi gửi góp ý |
 
