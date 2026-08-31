@@ -125,6 +125,7 @@ Nội dung trả về đã gộp chủ đề đã chọn vào đầu chuỗi: `"
 | `onSubmit` | `(String) -> Unit` | ✓ | Nhận nội dung đã gộp; chỉ gọi khi khác rỗng |
 | `onDismiss` | `() -> Unit` | ✓ | Đóng dialog |
 | `title` / `subtitle` | `String` / `String?` | ✗ | Tiêu đề và dòng mô tả (`subtitle = null` để ẩn) |
+| `headerEmoji` | `String?` | ✗ | Emoji trong huy hiệu tròn ở đầu dialog (mặc định `"💬"`); `null` = ẩn cả vùng đầu |
 | `tags` | `List<String>` | ✗ | Chủ đề chọn nhanh (mặc định `DefaultFeedbackTags`); rỗng = ẩn chip |
 | `hint` / `submitText` | `String` | ✗ | Placeholder ô nhập và nhãn nút gửi |
 | `dismissOnOutside` | `Boolean` | ✗ | Cho phép đóng khi bấm ra ngoài / Back (mặc định `true`) |

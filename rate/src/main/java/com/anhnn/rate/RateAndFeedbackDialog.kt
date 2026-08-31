@@ -2,12 +2,20 @@ package com.anhnn.rate
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -19,15 +27,22 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -43,7 +58,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -150,7 +168,7 @@ fun RateAndFeedbackDialog(
             label = "rate-content",
         ) { thanks ->
             if (thanks) {
-                RateThanksCard(title = thanksTitle.orEmpty(), message = thanksMessage)
+                ThanksCard(title = thanksTitle.orEmpty(), message = thanksMessage)
                 LaunchedEffect(Unit) {
                     delay(thanksDurationMillis)
                     onDismiss()
@@ -218,104 +236,152 @@ private fun RateCard(
     val colors = MaterialTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = colors.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(24.dp),
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                color = colors.onSurface,
-                textAlign = TextAlign.Center,
-            )
-
-            AnimatedVisibility(visible = rate > 0) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Spacer(Modifier.height(16.dp))
-                    Text(text = emojis[rate - 1], fontSize = 44.sp)
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = labels[rate - 1],
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.onSurfaceVariant,
-                    )
-                }
+            HeroHeader {
+                EmojiBadge(
+                    emoji = if (rate > 0) emojis[rate - 1] else emojis[emojis.size / 2],
+                    muted = rate == 0,
+                )
             }
 
-            Spacer(Modifier.height(16.dp))
-            EmojiRow(rate = rate, emojis = emojis, labels = labels, onRateChange = onRateChange)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.onSurface,
+                    textAlign = TextAlign.Center,
+                )
 
-            AnimatedVisibility(visible = isLowRate) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    if (tags.isNotEmpty()) {
-                        Spacer(Modifier.height(16.dp))
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            tags.forEachIndexed { index, tag ->
-                                FilterChip(
-                                    selected = selected.getOrElse(index) { false },
-                                    onClick = { onToggleTag(index) },
-                                    label = { Text(tag, style = MaterialTheme.typography.bodySmall) },
-                                    shape = RoundedCornerShape(50),
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = colors.primaryContainer,
-                                        selectedLabelColor = colors.onPrimaryContainer,
-                                    ),
-                                )
+                Spacer(Modifier.height(6.dp))
+                AnimatedContent(
+                    targetState = if (rate > 0) labels[rate - 1] else "",
+                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    label = "rate-label",
+                ) { label ->
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = colors.primary,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+                EmojiRow(rate = rate, emojis = emojis, labels = labels, onRateChange = onRateChange)
+
+                AnimatedVisibility(visible = isLowRate) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        if (tags.isNotEmpty()) {
+                            Spacer(Modifier.height(20.dp))
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                tags.forEachIndexed { index, tag ->
+                                    FeedbackChip(
+                                        text = tag,
+                                        selected = selected.getOrElse(index) { false },
+                                        onClick = { onToggleTag(index) },
+                                    )
+                                }
                             }
                         }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = text,
-                        onValueChange = onTextChange,
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text(hint) },
-                        shape = RoundedCornerShape(12.dp),
-                        minLines = 3,
-                        maxLines = 5,
-                    )
-                }
-            }
-
-            AnimatedVisibility(visible = rate > 0) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Spacer(Modifier.height(16.dp))
-                    Button(
-                        onClick = onSubmit,
-                        enabled = !isLowRate || selected.any { it } || text.isNotBlank(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
-                        Text(submitText)
+                        Spacer(Modifier.height(12.dp))
+                        FeedbackField(value = text, hint = hint, onValueChange = onTextChange)
                     }
                 }
-            }
 
-            if (dismissText != null) {
-                Spacer(Modifier.height(4.dp))
-                TextButton(onClick = onDismiss) {
-                    Text(dismissText, color = colors.onSurfaceVariant)
+                AnimatedVisibility(visible = rate > 0) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Spacer(Modifier.height(20.dp))
+                        PrimaryButton(
+                            text = submitText,
+                            enabled = !isLowRate || selected.any { it } || text.isNotBlank(),
+                            onClick = onSubmit,
+                        )
+                    }
+                }
+
+                if (dismissText != null) {
+                    Spacer(Modifier.height(4.dp))
+                    TextButton(onClick = onDismiss) {
+                        Text(
+                            text = dismissText,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = colors.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-/** Hàng 5 emoji chấm điểm; emoji chưa đạt tới mức đang chọn bị làm mờ. */
+/** Vùng đầu dialog: dải gradient tông primary, nội dung (emoji/icon) nổi ở giữa. */
+@Composable
+private fun HeroHeader(content: @Composable () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(116.dp)
+            .background(
+                Brush.verticalGradient(
+                    listOf(colors.primaryContainer.copy(alpha = 0.75f), colors.surface),
+                )
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
+    }
+}
+
+/** Emoji lớn đặt trong huy hiệu tròn nổi trên nền gradient. */
+@Composable
+private fun EmojiBadge(emoji: String, muted: Boolean) {
+    Surface(
+        modifier = Modifier.size(84.dp),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 4.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            AnimatedContent(
+                targetState = emoji,
+                transitionSpec = {
+                    (fadeIn() + scaleIn(initialScale = 0.7f)) togetherWith
+                        (fadeOut() + scaleOut(targetScale = 0.7f))
+                },
+                label = "emoji-badge",
+            ) { value ->
+                Text(
+                    text = value,
+                    fontSize = 40.sp,
+                    modifier = Modifier.alpha(if (muted) 0.35f else 1f),
+                )
+            }
+        }
+    }
+}
+
+/** Hàng 5 emoji chấm điểm; mức đang chọn được phóng to và bọc viền tông primary. */
 @Composable
 private fun EmojiRow(
     rate: Int,
@@ -323,50 +389,146 @@ private fun EmojiRow(
     labels: List<String>,
     onRateChange: (Int) -> Unit,
 ) {
+    val colors = MaterialTheme.colorScheme
+    // SpaceBetween thay vì spacedBy: 5 vòng tròn luôn vừa bề ngang dialog kể cả máy 360dp.
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         emojis.forEachIndexed { index, emoji ->
-            val active = rate > 0 && index < rate
-            val scale by animateFloatAsState(if (active) 1.12f else 1f, label = "emoji-scale")
-            Text(
-                text = emoji,
-                fontSize = 30.sp,
-                textAlign = TextAlign.Center,
+            val active = rate == index + 1
+            val scale by animateFloatAsState(
+                targetValue = if (active) 1.15f else 1f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                label = "emoji-scale",
+            )
+            val container by animateColorAsState(
+                targetValue = if (active) colors.primaryContainer else colors.surfaceVariant.copy(alpha = 0.5f),
+                label = "emoji-container",
+            )
+            val border by animateColorAsState(
+                targetValue = if (active) colors.primary else Color.Transparent,
+                label = "emoji-border",
+            )
+
+            Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(46.dp)
                     .graphicsLayer {
                         scaleX = scale
                         scaleY = scale
                     }
-                    .alpha(if (active) 1f else 0.35f)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(CircleShape)
+                    .background(container)
+                    .border(width = 2.dp, color = border, shape = CircleShape)
                     .clickable(onClickLabel = labels.getOrNull(index)) { onRateChange(index + 1) },
-            )
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = emoji,
+                    fontSize = 24.sp,
+                    modifier = Modifier.alpha(if (rate == 0 || active) 1f else 0.45f),
+                )
+            }
         }
     }
 }
 
+/** Chip chọn chủ đề, bo tròn hoàn toàn, bỏ viền khi đang chọn. */
 @Composable
-private fun RateThanksCard(title: String, message: String) {
+private fun FeedbackChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(text, style = MaterialTheme.typography.bodySmall) },
+        shape = CircleShape,
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = colors.surfaceVariant.copy(alpha = 0.5f),
+            labelColor = colors.onSurfaceVariant,
+            selectedContainerColor = colors.primaryContainer,
+            selectedLabelColor = colors.onPrimaryContainer,
+        ),
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = true,
+            selected = selected,
+            borderColor = Color.Transparent,
+            selectedBorderColor = Color.Transparent,
+        ),
+    )
+}
+
+/** Ô nhập góp ý nền tonal, bo 16dp, viền nhạt để không "cắt" khối card. */
+@Composable
+private fun FeedbackField(value: String, hint: String, onValueChange: (String) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth(),
+        placeholder = {
+            Text(
+                text = hint,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceVariant.copy(alpha = 0.7f),
+            )
+        },
+        textStyle = MaterialTheme.typography.bodyMedium,
+        shape = RoundedCornerShape(16.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = colors.surfaceVariant.copy(alpha = 0.35f),
+            unfocusedContainerColor = colors.surfaceVariant.copy(alpha = 0.35f),
+            unfocusedBorderColor = Color.Transparent,
+            focusedBorderColor = colors.primary,
+        ),
+        minLines = 3,
+        maxLines = 5,
+    )
+}
+
+/** Nút hành động chính: cao 54dp, bo 16dp, chữ đậm. */
+@Composable
+private fun PrimaryButton(text: String, enabled: Boolean, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(54.dp),
+        shape = RoundedCornerShape(16.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+/** Màn cảm ơn: huy hiệu tick bật lên theo spring rồi tới tiêu đề và lời cảm ơn. */
+@Composable
+private fun ThanksCard(title: String, message: String) {
     val colors = MaterialTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = colors.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(32.dp),
+                .padding(horizontal = 32.dp, vertical = 36.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            CheckBadge()
+            Spacer(Modifier.height(20.dp))
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
                 color = colors.onSurface,
                 textAlign = TextAlign.Center,
             )
@@ -378,5 +540,35 @@ private fun RateThanksCard(title: String, message: String) {
                 textAlign = TextAlign.Center,
             )
         }
+    }
+}
+
+@Composable
+private fun CheckBadge() {
+    var appeared by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (appeared) 1f else 0.5f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "check-scale",
+    )
+    LaunchedEffect(Unit) { appeared = true }
+
+    Box(
+        modifier = Modifier
+            .size(72.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primaryContainer),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Default.Check,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.size(36.dp),
+        )
     }
 }
