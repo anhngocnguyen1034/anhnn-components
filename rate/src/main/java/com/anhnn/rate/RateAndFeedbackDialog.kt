@@ -3,6 +3,7 @@ package com.anhnn.rate
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -14,10 +15,13 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,6 +30,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,6 +66,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -159,47 +165,53 @@ fun RateAndFeedbackDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
             dismissOnBackPress = dismissOnOutside,
-            dismissOnClickOutside = dismissOnOutside,
+            // Cửa sổ full-screen: chiều cao cửa sổ không đổi khi nội dung dài ra nên không bị
+            // giật; scrim và vùng bấm-ra-ngoài do DialogScaffold tự lo.
+            usePlatformDefaultWidth = false,
         ),
     ) {
-        AnimatedContent(
-            targetState = showThanks,
-            transitionSpec = { fadeIn() togetherWith fadeOut() },
-            label = "rate-content",
-        ) { thanks ->
-            if (thanks) {
-                ThanksCard(title = thanksTitle.orEmpty(), message = thanksMessage)
-                LaunchedEffect(Unit) {
-                    delay(thanksDurationMillis)
-                    onDismiss()
+        DialogScaffold(onScrimClick = if (dismissOnOutside) onDismiss else null) {
+            AnimatedContent(
+                targetState = showThanks,
+                // `using null` để AnimatedContent không animate size — chiều cao do
+                // animateContentSize trong DialogScaffold lo, tránh 2 animation đánh nhau.
+                transitionSpec = { fadeIn() togetherWith fadeOut() using null },
+                label = "rate-content",
+            ) { thanks ->
+                if (thanks) {
+                    ThanksCard(title = thanksTitle.orEmpty(), message = thanksMessage)
+                    LaunchedEffect(Unit) {
+                        delay(thanksDurationMillis)
+                        onDismiss()
+                    }
+                } else {
+                    RateCard(
+                        rate = rate,
+                        isLowRate = isLowRate,
+                        emojis = emojis,
+                        labels = labels,
+                        tags = tags,
+                        selected = selected,
+                        text = text,
+                        title = if (isLowRate) lowRateTitle else title,
+                        hint = hint,
+                        submitText = if (isLowRate) sendText else rateText,
+                        dismissText = dismissText,
+                        onRateChange = { rate = it },
+                        onToggleTag = { index -> selected[index] = !selected[index] },
+                        onTextChange = { text = it },
+                        onDismiss = onDismiss,
+                        onSubmit = {
+                            if (isLowRate) {
+                                val payload = buildRateFeedback(tags, selected, text)
+                                if (payload.isNotEmpty()) onSubmitFeedback(payload)
+                                if (thanksTitle != null) showThanks = true else onDismiss()
+                            } else {
+                                onRate()
+                            }
+                        },
+                    )
                 }
-            } else {
-                RateCard(
-                    rate = rate,
-                    isLowRate = isLowRate,
-                    emojis = emojis,
-                    labels = labels,
-                    tags = tags,
-                    selected = selected,
-                    text = text,
-                    title = if (isLowRate) lowRateTitle else title,
-                    hint = hint,
-                    submitText = if (isLowRate) sendText else rateText,
-                    dismissText = dismissText,
-                    onRateChange = { rate = it },
-                    onToggleTag = { index -> selected[index] = !selected[index] },
-                    onTextChange = { text = it },
-                    onDismiss = onDismiss,
-                    onSubmit = {
-                        if (isLowRate) {
-                            val payload = buildRateFeedback(tags, selected, text)
-                            if (payload.isNotEmpty()) onSubmitFeedback(payload)
-                            if (thanksTitle != null) showThanks = true else onDismiss()
-                        } else {
-                            onRate()
-                        }
-                    },
-                )
             }
         }
     }
@@ -243,7 +255,6 @@ private fun RateCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .imePadding()
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -269,23 +280,29 @@ private fun RateCard(
                 )
 
                 Spacer(Modifier.height(6.dp))
-                AnimatedContent(
-                    targetState = if (rate > 0) labels[rate - 1] else "",
-                    transitionSpec = { fadeIn() togetherWith fadeOut() },
-                    label = "rate-label",
-                ) { label ->
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = colors.primary,
-                        textAlign = TextAlign.Center,
-                    )
+                // Chiều cao cố định: đổi nhãn không làm layout nhảy.
+                Box(
+                    modifier = Modifier.height(22.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    AnimatedContent(
+                        targetState = if (rate > 0) labels[rate - 1] else "",
+                        transitionSpec = { fadeIn() togetherWith fadeOut() using null },
+                        label = "rate-label",
+                    ) { label ->
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = colors.primary,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(16.dp))
                 EmojiRow(rate = rate, emojis = emojis, labels = labels, onRateChange = onRateChange)
 
-                AnimatedVisibility(visible = isLowRate) {
+                AnimatedVisibility(visible = isLowRate, enter = fadeIn(), exit = fadeOut()) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         if (tags.isNotEmpty()) {
                             Spacer(Modifier.height(20.dp))
@@ -308,7 +325,7 @@ private fun RateCard(
                     }
                 }
 
-                AnimatedVisibility(visible = rate > 0) {
+                AnimatedVisibility(visible = rate > 0, enter = fadeIn(), exit = fadeOut()) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Spacer(Modifier.height(20.dp))
                         PrimaryButton(
@@ -330,6 +347,55 @@ private fun RateCard(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Khung chung cho dialog: cửa sổ full-screen nên **kích thước cửa sổ không đổi**, chỉ card bên
+ * trong co giãn — nhờ vậy phần mở rộng khi user chấm điểm thấp chạy mượt thay vì giật theo từng
+ * lần cửa sổ đo lại.
+ *
+ * Mọi thay đổi chiều cao đi qua đúng một [animateContentSize] để các animation không chồng nhau.
+ *
+ * @param onScrimClick bấm ra ngoài card thì gọi; null = không cho đóng bằng cách bấm ngoài.
+ */
+@Composable
+private fun DialogScaffold(onScrimClick: (() -> Unit)?, content: @Composable () -> Unit) {
+    val scrimInteraction = remember { MutableInteractionSource() }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding()
+            .then(
+                if (onScrimClick != null) {
+                    Modifier.clickable(
+                        interactionSource = scrimInteraction,
+                        indication = null,
+                        onClick = onScrimClick,
+                    )
+                } else {
+                    Modifier
+                }
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .widthIn(max = 420.dp)
+                .padding(24.dp)
+                // Nuốt tap để bấm vào card không lọt xuống scrim. Dùng pointerInput thay
+                // clickable để không tạo thêm node "nút" thừa cho TalkBack.
+                .pointerInput(Unit) { detectTapGestures {} }
+                .animateContentSize(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow,
+                    )
+                ),
+        ) {
+            content()
         }
     }
 }

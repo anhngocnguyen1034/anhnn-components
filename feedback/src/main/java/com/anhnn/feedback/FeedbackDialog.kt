@@ -1,6 +1,7 @@
 package com.anhnn.feedback
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -8,10 +9,14 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -125,38 +132,44 @@ fun FeedbackDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
             dismissOnBackPress = dismissOnOutside,
-            dismissOnClickOutside = dismissOnOutside,
+            // Cửa sổ full-screen: chiều cao cửa sổ không đổi khi nội dung dài ra nên không bị
+            // giật; scrim và vùng bấm-ra-ngoài do DialogScaffold tự lo.
+            usePlatformDefaultWidth = false,
         ),
     ) {
-        AnimatedContent(
-            targetState = showThanks,
-            transitionSpec = { fadeIn() togetherWith fadeOut() },
-            label = "feedback-content",
-        ) { thanks ->
-            if (thanks) {
-                ThanksCard(title = thanksTitle.orEmpty(), message = thanksMessage)
-                LaunchedEffect(Unit) {
-                    delay(thanksDurationMillis)
-                    onDismiss()
+        DialogScaffold(onScrimClick = if (dismissOnOutside) onDismiss else null) {
+            AnimatedContent(
+                targetState = showThanks,
+                // `using null` để AnimatedContent không animate size — chiều cao do
+                // animateContentSize trong DialogScaffold lo, tránh 2 animation đánh nhau.
+                transitionSpec = { fadeIn() togetherWith fadeOut() using null },
+                label = "feedback-content",
+            ) { thanks ->
+                if (thanks) {
+                    ThanksCard(title = thanksTitle.orEmpty(), message = thanksMessage)
+                    LaunchedEffect(Unit) {
+                        delay(thanksDurationMillis)
+                        onDismiss()
+                    }
+                } else {
+                    FeedbackCard(
+                        title = title,
+                        subtitle = subtitle,
+                        headerEmoji = headerEmoji,
+                        tags = tags,
+                        selected = selected,
+                        text = text,
+                        hint = hint,
+                        submitText = submitText,
+                        onToggleTag = { index -> selected[index] = !selected[index] },
+                        onTextChange = { text = it },
+                        onSubmit = {
+                            val payload = buildFeedback(tags, selected, text)
+                            if (payload.isNotEmpty()) onSubmit(payload)
+                            if (thanksTitle != null) showThanks = true else onDismiss()
+                        },
+                    )
                 }
-            } else {
-                FeedbackCard(
-                    title = title,
-                    subtitle = subtitle,
-                    headerEmoji = headerEmoji,
-                    tags = tags,
-                    selected = selected,
-                    text = text,
-                    hint = hint,
-                    submitText = submitText,
-                    onToggleTag = { index -> selected[index] = !selected[index] },
-                    onTextChange = { text = it },
-                    onSubmit = {
-                        val payload = buildFeedback(tags, selected, text)
-                        if (payload.isNotEmpty()) onSubmit(payload)
-                        if (thanksTitle != null) showThanks = true else onDismiss()
-                    },
-                )
             }
         }
     }
@@ -195,7 +208,6 @@ private fun FeedbackCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .imePadding()
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -259,6 +271,55 @@ private fun FeedbackCard(
                     onClick = onSubmit,
                 )
             }
+        }
+    }
+}
+
+/**
+ * Khung chung cho dialog: cửa sổ full-screen nên **kích thước cửa sổ không đổi**, chỉ card bên
+ * trong co giãn — nhờ vậy các bước chuyển (hiện màn cảm ơn, bàn phím bật lên) chạy mượt thay vì
+ * giật theo từng lần cửa sổ đo lại.
+ *
+ * Mọi thay đổi chiều cao đi qua đúng một [animateContentSize] để các animation không chồng nhau.
+ *
+ * @param onScrimClick bấm ra ngoài card thì gọi; null = không cho đóng bằng cách bấm ngoài.
+ */
+@Composable
+private fun DialogScaffold(onScrimClick: (() -> Unit)?, content: @Composable () -> Unit) {
+    val scrimInteraction = remember { MutableInteractionSource() }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding()
+            .then(
+                if (onScrimClick != null) {
+                    Modifier.clickable(
+                        interactionSource = scrimInteraction,
+                        indication = null,
+                        onClick = onScrimClick,
+                    )
+                } else {
+                    Modifier
+                }
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .widthIn(max = 420.dp)
+                .padding(24.dp)
+                // Nuốt tap để bấm vào card không lọt xuống scrim. Dùng pointerInput thay
+                // clickable để không tạo thêm node "nút" thừa cho TalkBack.
+                .pointerInput(Unit) { detectTapGestures {} }
+                .animateContentSize(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow,
+                    )
+                ),
+        ) {
+            content()
         }
     }
 }
