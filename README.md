@@ -29,7 +29,7 @@ dependencies {
     implementation("com.github.anhngocnguyen1034.anhnn-components:rate:1.9.1")
     implementation("com.github.anhngocnguyen1034.anhnn-components:exit:1.1.0")
     // ⚠️ artifactId của module ads là dạng đầy đủ `anhnn-components-ads` (không phải `ads`):
-    implementation("com.github.anhngocnguyen1034.anhnn-components:anhnn-components-ads:1.2.1")
+    implementation("com.github.anhngocnguyen1034.anhnn-components:anhnn-components-ads:1.10.0")
     implementation("com.github.anhngocnguyen1034.anhnn-components:anhnn-components-analytics:1.3.0")
 
     // Thư viện language (repo riêng):
@@ -344,6 +344,7 @@ Ads.init(AdsConfig(
     adUnitId   = { name -> remoteConfig.adUnitId(name) }, // map sang test/production
     adFormat   = { name -> formats[name] },
     interCooldownMs = { 30_000L },                        // tùy chọn
+    onAdClicked = { name -> clickGuard.record(name) },    // tùy chọn (từ 1.10.0)
 ))
 ```
 
@@ -373,6 +374,7 @@ BannerAd(adName = "exit_banner")
 | Hàm | Mô tả |
 |-----|-------|
 | `Ads.init(config)` | Khai báo `AdsConfig` (gọi 1 lần, trước mọi thao tác) |
+| `AdsConfig.onAdClicked` | Callback `(adName) -> Unit` mỗi khi người dùng bấm vào quảng cáo, **mọi định dạng** (banner, interstitial, native, app open, rewarded). Dùng để app tự giới hạn click / phát hiện abuse — AdMob khóa tài khoản vì "invalid traffic" mà không nói cụ thể, nên app cần tự đếm. Gọi trên main thread. |
 | `Ads.start(activity) { }` | Thu thập consent (UMP) + init Mobile Ads, xong gọi callback |
 | `Ads.preload(context, vararg names)` | Nạp trước vào cache theo định dạng từng tên |
 | `Ads.isInterstitialReady(name)` | true nếu interstitial đã load sẵn |

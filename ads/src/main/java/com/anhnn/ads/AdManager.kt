@@ -40,6 +40,11 @@ internal object AdManager {
 
     private fun enabled(): Boolean = config?.adsEnabled() == true
 
+    /** Báo cho app biết người dùng vừa bấm vào quảng cáo [adName] (mọi định dạng). */
+    fun notifyClicked(adName: String) {
+        config?.onAdClicked?.invoke(adName)
+    }
+
     private fun unitId(adName: String): String = config!!.adUnitId(adName)
 
     // ---------------------------------------------------------------- preload dispatch
@@ -104,6 +109,10 @@ internal object AdManager {
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdShowedFullScreenContent() {
                 showingFullScreen = true
+            }
+
+            override fun onAdClicked() {
+                notifyClicked(adName)
             }
 
             override fun onAdDismissedFullScreenContent() {
@@ -195,6 +204,10 @@ internal object AdManager {
                 showingFullScreen = true
             }
 
+            override fun onAdClicked() {
+                notifyClicked(adName)
+            }
+
             override fun onAdDismissedFullScreenContent() {
                 slot.ad = null
                 showingFullScreen = false
@@ -270,6 +283,10 @@ internal object AdManager {
                 showingFullScreen = true
             }
 
+            override fun onAdClicked() {
+                notifyClicked(adName)
+            }
+
             override fun onAdDismissedFullScreenContent() {
                 slot.ad = null
                 showingFullScreen = false
@@ -309,6 +326,10 @@ internal object AdManager {
                     Log.w(TAG, "[$adName] native load failed: ${error.message}")
                     slot.loading = false
                 }
+
+                override fun onAdClicked() {
+                    notifyClicked(adName)
+                }
             })
             .build()
         loader.loadAd(AdRequest.Builder().build())
@@ -344,6 +365,10 @@ internal object AdManager {
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     Log.w(TAG, "[$adName] native load failed: ${error.message}")
                     onFailed()
+                }
+
+                override fun onAdClicked() {
+                    notifyClicked(adName)
                 }
             })
             .build()

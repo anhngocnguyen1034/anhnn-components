@@ -53,6 +53,7 @@ fun BannerAd(adName: String, modifier: Modifier = Modifier) {
                 adListener = object : AdListener() {
                     override fun onAdLoaded() { loaded = true }
                     override fun onAdFailedToLoad(error: LoadAdError) { failed = true }
+                    override fun onAdClicked() { AdManager.notifyClicked(adName) }
                 }
             }
         }

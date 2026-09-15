@@ -12,10 +12,14 @@ enum class AdFormat { INTERSTITIAL, NATIVE, BANNER, APP_OPEN, REWARDED }
  * @param adUnitId         tra ad unit id theo tên vị trí (app tự map sang test/production).
  * @param adFormat         định dạng của từng tên vị trí; trả null nếu tên không hợp lệ.
  * @param interCooldownMs  khoảng cách tối thiểu (ms) giữa 2 interstitial bất kỳ.
+ * @param onAdClicked      gọi mỗi khi người dùng bấm vào một quảng cáo (mọi định dạng), kèm tên
+ *                         vị trí. Dùng để app tự giới hạn click / phát hiện abuse (chống invalid
+ *                         traffic). Gọi trên main thread. Mặc định không làm gì.
  */
 class AdsConfig(
     val adsEnabled: () -> Boolean = { true },
     val adUnitId: (adName: String) -> String,
     val adFormat: (adName: String) -> AdFormat?,
     val interCooldownMs: () -> Long = { 30_000L },
+    val onAdClicked: (adName: String) -> Unit = {},
 )
