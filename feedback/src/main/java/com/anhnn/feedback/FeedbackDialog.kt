@@ -143,6 +143,11 @@ fun FeedbackDialog(
             // Cửa sổ full-screen: chiều cao cửa sổ không đổi khi nội dung dài ra nên không bị
             // giật; scrim và vùng bấm-ra-ngoài do DialogScaffold tự lo.
             usePlatformDefaultWidth = false,
+            // BẮT BUỘC cho imePadding() bên dưới: để mặc định (true) thì DecorView của cửa sổ
+            // dialog tự nuốt inset bàn phím, WindowInsets.ime trong composition luôn = 0 nên
+            // imePadding() không đẩy gì cả -> bàn phím che mất ô nhập góp ý (hệ thống chỉ pan
+            // được một đoạn). Đặt false để chính nội dung Compose nhận và xử lý inset IME.
+            decorFitsSystemWindows = false,
         ),
     ) {
         DialogScaffold(onScrimClick = if (dismissOnOutside) onDismiss else null) {
