@@ -136,6 +136,7 @@ fun FeedbackDialog(
     val selected = remember(tags) { mutableStateListOf(*Array(tags.size) { false }) }
     var showThanks by rememberSaveable { mutableStateOf(false) }
 
+    val hostBars = rememberHostBarsState()
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -150,6 +151,9 @@ fun FeedbackDialog(
             decorFitsSystemWindows = false,
         ),
     ) {
+        // Cửa sổ dialog là cửa sổ RIÊNG -> tự áp lại trạng thái thanh hệ thống
+        // của màn gọi, nếu không app đang immersive sẽ bị navbar nhảy ra.
+        ApplyHostBars(hostBars)
         DialogScaffold(onScrimClick = if (dismissOnOutside) onDismiss else null) {
             AnimatedContent(
                 targetState = showThanks,

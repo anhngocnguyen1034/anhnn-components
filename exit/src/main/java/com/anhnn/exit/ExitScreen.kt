@@ -120,10 +120,14 @@ fun ExitScreen(
     adContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
+    val hostBars = rememberHostBarsState()
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
+        // Cửa sổ dialog là cửa sổ RIÊNG -> tự áp lại trạng thái thanh hệ thống
+        // của màn gọi, nếu không app đang immersive sẽ bị navbar nhảy ra.
+        ApplyHostBars(hostBars)
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = colors.background,
