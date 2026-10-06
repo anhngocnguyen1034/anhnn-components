@@ -29,7 +29,7 @@ dependencies {
     implementation("com.github.anhngocnguyen1034.anhnn-components:rate:1.9.3")
     implementation("com.github.anhngocnguyen1034.anhnn-components:exit:1.9.3")
     // ⚠️ artifactId của module ads là dạng đầy đủ `anhnn-components-ads` (không phải `ads`):
-    implementation("com.github.anhngocnguyen1034.anhnn-components:anhnn-components-ads:1.2.1")
+    implementation("com.github.anhngocnguyen1034.anhnn-components:anhnn-components-ads:1.9.4")
     implementation("com.github.anhngocnguyen1034.anhnn-components:anhnn-components-analytics:1.3.0")
 
     // Thư viện language (repo riêng):
@@ -344,8 +344,14 @@ Ads.init(AdsConfig(
     adUnitId   = { name -> remoteConfig.adUnitId(name) }, // map sang test/production
     adFormat   = { name -> formats[name] },
     interCooldownMs = { 30_000L },                        // tùy chọn
+    onAdClicked = { name -> /* vd: bỏ qua App Open lần quay lại kế tiếp */ }, // tùy chọn
 ))
 ```
+
+`onAdClicked` được gọi khi người dùng bấm vào quảng cáo ở **mọi định dạng** (banner, native,
+interstitial, app open, rewarded). App tự quản App Open lúc quay lại app thì phải dùng nó: bấm
+quảng cáo → sang trình duyệt/Play Store → quay lại mà hiện App Open là quảng cáo chồng quảng cáo,
+AdMob cấm. `Ads.setupAppOpen` của module đã tự bỏ qua lượt quay lại đó.
 
 #### Bước 2 — Consent + init SDK, rồi preload
 
@@ -373,14 +379,33 @@ BannerAd(adName = "exit_banner")
 | Hàm | Mô tả |
 |-----|-------|
 | `Ads.init(config)` | Khai báo `AdsConfig` (gọi 1 lần, trước mọi thao tác) |
-| `Ads.start(activity) { }` | Thu thập consent (UMP) + init Mobile Ads, xong gọi callback |
+| `Ads.start(activity) { }` | Thu thập consent (UMP) + init Mobile Ads, xong gọi callback. UMP trả `canRequestAds() == false` thì KHÔNG init, mọi request bị chặn (callback vẫn chạy) |
+| `Ads.isConsentBlocked` | true nếu lượt `start` gần nhất bị UMP chặn — app nên coi như quảng cáo đang tắt |
+| `Ads.refreshConsent(activity) { unblocked -> }` | Gọi sau khi người dùng đổi consent (đóng form Privacy options): đang bị chặn mà nay được phép thì init SDK và báo `true` |
+| `SuppressesAppOpen` | Interface cho Activity: `suppressAppOpen = true` thì `Ads.setupAppOpen` không hiện App Open lúc đó (màn splash có App Open riêng, màn đang phát âm thanh...) |
 | `Ads.preload(context, vararg names)` | Nạp trước vào cache theo định dạng từng tên |
 | `Ads.isInterstitialReady(name)` | true nếu interstitial đã load sẵn |
 | `Ads.showInterstitial(activity, name) { }` | Hiện nếu sẵn (+cooldown), không thì callback ngay + preload lại |
 | `Ads.canRequestAds(activity)` | true nếu đủ điều kiện request ad (consent) |
 | `Ads.clear()` | Hủy toàn bộ ad đang cache (vd khi mua gói no-ads) |
+| `Ads.loadAndShowInterstitial(activity, adName, style, loadingLabel, timeoutMs, onState, onClosed)` | **Nạp rồi mới hiện** — chưa có ad sẵn thì nạp ngay + hiện màn chờ, quá hạn thì bỏ qua. Dùng cho vị trí người dùng chỉ ghé một lần (preload không kịp) |
+| `AdState` | Trạng thái chi tiết của một lượt: `Loading/Loaded/Cached/Show/Click/Paid/Close/Timeout/Error/Skipped/Done`. `Done` luôn là cuối |
+| `AdLoadingStyle` | `None` / `Dialog` / `FullScreen` — màn chờ lúc nạp |
+| `NativeInterstitialTransition(adName, onContinue, delaySeconds)` | Native toàn màn thay interstitial, nút "Tiếp tục" mở sau đếm ngược |
+| `NativeAdContainer` + `NativeAdHeadlineView`/`BodyView`/`IconView`/`CallToActionView`/`MediaView`/`ChoicesView`/... | Tự dựng layout native bằng Compose thay cho 2 template cứng SMALL/MEDIUM |
 | `NativeAd(adName, modifier)` | Composable native (cache-first, fallback inline, theme-aware) |
-| `BannerAd(adName, modifier)` | Composable banner adaptive (load inline, full-width khung) |
+| `BannerAd(adName, modifier, onFailedChange)` | Composable banner adaptive (load inline, full-width khung). `onFailedChange(true)` khi nạp hỏng (banner cao 0) để app bỏ phần đệm quanh nó |
+
+Các hàm hiện quảng cáo toàn màn hình (`showInterstitial`, `loadAndShow*`, `showAppOpen`,
+`showRewarded`) **không hiện khi activity chưa/không còn ở trạng thái STARTED** (người dùng bấm Home
+lúc đang nạp): ad được trả lại kho, `onState` báo `Skipped`. ⚠️ Thay đổi so với 1.9.3: gọi chúng
+ngay trong `onCreate`/`onStart` giờ sẽ bị bỏ qua — gọi từ `onResume`, `LaunchedEffect` hoặc callback
+thao tác của người dùng. Cooldown `interCooldownMs` tính cho MỌI quảng cáo toàn màn hình, kể cả App
+Open ở splash. `Ads.setupAppOpen` bỏ qua lần "quay lại" giả do activity dựng lại vì đổi cấu hình
+(dark mode, chia đôi màn hình, gập máy), lần quay lại sau khi bấm quảng cáo, không đếm activity
+của SDK quảng cáo, và hỏi `SuppressesAppOpen`. Native nằm trong kho quá 1 giờ bị huỷ và nạp lại.
+Trong slot của native tự dựng **không đặt composable clickable** (`Button`...): nó nuốt chạm và
+SDK không ghi nhận click.
 
 ---
 

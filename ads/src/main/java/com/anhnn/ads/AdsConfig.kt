@@ -12,10 +12,15 @@ enum class AdFormat { INTERSTITIAL, NATIVE, BANNER, APP_OPEN, REWARDED }
  * @param adUnitId         tra ad unit id theo tên vị trí (app tự map sang test/production).
  * @param adFormat         định dạng của từng tên vị trí; trả null nếu tên không hợp lệ.
  * @param interCooldownMs  khoảng cách tối thiểu (ms) giữa 2 interstitial bất kỳ.
+ * @param onAdClicked      người dùng bấm vào quảng cáo [adName] — MỌI định dạng (banner, native,
+ *        interstitial, app open, rewarded), gọi trên main thread. App cần cái này để biết lần
+ *        "quay lại app" kế tiếp là do quảng cáo dẫn đi (sang trình duyệt / Play Store): hiện
+ *        App Open lúc đó là quảng cáo chồng quảng cáo, chính sách AdMob cấm.
  */
 class AdsConfig(
     val adsEnabled: () -> Boolean = { true },
     val adUnitId: (adName: String) -> String,
     val adFormat: (adName: String) -> AdFormat?,
     val interCooldownMs: () -> Long = { 30_000L },
+    val onAdClicked: (adName: String) -> Unit = {},
 )

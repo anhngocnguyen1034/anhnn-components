@@ -39,7 +39,7 @@ afterEvaluate {
                 from(components["release"])
                 groupId    = "com.github.anhngocnguyen1034"
                 artifactId = "anhnn-components-ads"
-                version    = "unspecified"
+                version    = project.findProperty("libVersion")?.toString() ?: "unspecified"
             }
         }
     }

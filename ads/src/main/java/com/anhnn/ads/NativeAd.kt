@@ -76,6 +76,8 @@ fun NativeAd(
     }
 
     DisposableEffect(adName) {
+        // Rời màn trước khi lượt nạp inline về -> ad về muộn phải tự huỷ (xem NativeAdContainer).
+        var disposed = false
         // Ưu tiên ad đã preload (hiện ngay); cache trống thì load inline.
         val cached = AdManager.acquireNative(context, adName)
         if (cached != null) {
@@ -85,11 +87,19 @@ fun NativeAd(
             AdManager.loadNativeNow(
                 context = context,
                 adName = adName,
-                onLoaded = { nativeAd = it; loading = false },
+                onLoaded = {
+                    if (disposed) {
+                        it.destroy()
+                    } else {
+                        nativeAd = it
+                        loading = false
+                    }
+                },
                 onFailed = { loading = false },
             )
         }
         onDispose {
+            disposed = true
             // Composable sở hữu ad này (đã acquire / load inline) nên tự hủy.
             nativeAd?.destroy()
             nativeAd = null

@@ -11,6 +11,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -30,11 +31,19 @@ import com.google.android.gms.ads.LoadAdError
  * Banner load **inline** (không cache như native/interstitial) vì kích thước phụ thuộc bề rộng
  * thật của khung lúc chạy, và cache AdView sẽ giữ tham chiếu context gây leak. Banner vốn nhẹ &
  * load nhanh nên inline là đủ. Tắt ads / chưa init → rỗng.
+ *
+ * @param onFailedChange báo khi banner nạp hỏng (`true`, banner thu về cao 0) hoặc nạp lại được
+ *        ở lượt tự làm mới (`false`) — để app bỏ phần đệm quanh banner, không để lại dải trống.
  */
 @Composable
-fun BannerAd(adName: String, modifier: Modifier = Modifier) {
+fun BannerAd(
+    adName: String,
+    modifier: Modifier = Modifier,
+    onFailedChange: (failed: Boolean) -> Unit = {},
+) {
     val unitId = AdManager.bannerUnitId(adName) ?: return
     val context = LocalContext.current
+    val currentOnFailedChange by rememberUpdatedState(onFailedChange)
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val widthDp = maxWidth.value.toInt().coerceAtLeast(1)
@@ -51,13 +60,33 @@ fun BannerAd(adName: String, modifier: Modifier = Modifier) {
                 setAdSize(adSize)
                 adUnitId = unitId
                 adListener = object : AdListener() {
-                    override fun onAdLoaded() { loaded = true }
-                    override fun onAdFailedToLoad(error: LoadAdError) { failed = true }
+                    override fun onAdLoaded() {
+                        loaded = true
+                        // Lượt tự làm mới (60s) của AdView có thể nạp được sau một lần hỏng.
+                        if (failed) {
+                            failed = false
+                            currentOnFailedChange(false)
+                        }
+                    }
+
+                    override fun onAdFailedToLoad(error: LoadAdError) {
+                        // Đã có ad đang hiện thì một lượt làm mới hỏng không làm mất ad đó.
+                        if (loaded) return
+                        failed = true
+                        currentOnFailedChange(true)
+                    }
+
+                    override fun onAdClicked() {
+                        AdManager.notifyClick(adName)
+                    }
                 }
             }
         }
 
         DisposableEffect(adView) {
+            // AdView mới (đổi bề rộng khung) bắt đầu lại từ trạng thái "chưa hỏng" — báo cho app,
+            // nếu không nó vẫn giữ báo "hỏng" của AdView cũ và bỏ phần đệm quanh banner đang hiện.
+            currentOnFailedChange(false)
             adView.loadAd(AdRequest.Builder().build())
             onDispose { adView.destroy() }
         }

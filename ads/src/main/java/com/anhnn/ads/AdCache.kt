@@ -16,7 +16,7 @@ internal object AdCache {
     class Slot<T> {
         @Volatile var ad: T? = null
         @Volatile var loading: Boolean = false
-        /** Mốc thời gian load (ms) — dùng cho App Open vì ad hết hạn sau ~4 giờ. */
+        /** Mốc thời gian load (ms) — App Open hết hạn sau ~4 giờ, native sau ~1 giờ. */
         @Volatile var loadedAt: Long = 0L
     }
 
