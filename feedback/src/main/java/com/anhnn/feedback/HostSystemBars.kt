@@ -1,5 +1,6 @@
 package com.anhnn.feedback
 
+import android.view.WindowManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
@@ -38,8 +39,12 @@ internal fun rememberHostBarsState(): HostBarsState {
 internal fun ApplyHostBars(state: HostBarsState) {
     val view = LocalView.current
     SideEffect {
-        if (!state.anyHidden) return@SideEffect
         val window = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect
+        // Dim của hệ thống phủ cả dưới status/nav bar; scrim vẽ bằng Compose thì không, vì
+        // Compose co cửa sổ dialog lại vừa khoảng giữa hai thanh -> hở 2 dải trên/dưới.
+        window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        window.setDimAmount(DIALOG_DIM_AMOUNT)
+        if (!state.anyHidden) return@SideEffect
         WindowInsetsControllerCompat(window, view).apply {
             if (state.navHidden) hide(WindowInsetsCompat.Type.navigationBars())
             if (state.statusHidden) hide(WindowInsetsCompat.Type.statusBars())
@@ -47,3 +52,5 @@ internal fun ApplyHostBars(state: HostBarsState) {
         }
     }
 }
+
+private const val DIALOG_DIM_AMOUNT = 0.4f
