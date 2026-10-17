@@ -17,6 +17,33 @@ internal object AdConsent {
     fun canRequestAds(activity: Activity): Boolean =
         UserMessagingPlatform.getConsentInformation(activity).canRequestAds()
 
+    /** Người dùng ở vùng áp dụng (EEA/UK/CH) ⇒ app BẮT BUỘC có lối vào form privacy options. */
+    fun isPrivacyOptionsRequired(activity: Activity): Boolean =
+        UserMessagingPlatform.getConsentInformation(activity).privacyOptionsRequirementStatus ==
+            ConsentInformation.PrivacyOptionsRequirementStatus.REQUIRED
+
+    /** [onClosed] luôn được gọi đúng 1 lần (kể cả khi form lỗi) để UI gọi không treo. */
+    fun showPrivacyOptionsForm(activity: Activity, onClosed: () -> Unit) {
+        var done = false
+        val finishOnce = {
+            if (!done) {
+                done = true
+                onClosed()
+            }
+        }
+        runCatching {
+            UserMessagingPlatform.showPrivacyOptionsForm(activity) { formError ->
+                if (formError != null) {
+                    Log.w(TAG, "privacy options form error ${formError.errorCode}: ${formError.message}")
+                }
+                finishOnce()
+            }
+        }.onFailure {
+            Log.w(TAG, "showPrivacyOptionsForm failed: $it")
+            finishOnce()
+        }
+    }
+
     /** [onReady] luôn được gọi đúng 1 lần (kể cả khi lỗi) để không chặn flow khởi động ads. */
     fun gather(activity: Activity, onReady: () -> Unit) {
         val params = ConsentRequestParameters.Builder().build()

@@ -163,6 +163,10 @@ object Ads {
      * [onClosed] luôn gọi khi ad đóng (hoặc khi không hiện được). Nếu chưa sẵn / không bật
      * thì preload cho lượt sau rồi gọi [onClosed] ngay, KHÔNG phát thưởng — nên kiểm tra
      * [isRewardedReady] để bật/tắt nút "Xem để nhận".
+     *
+     * ⚠️ Hàm này hiện NGAY, không hỏi. Chỉ gọi thẳng khi chính cú bấm của người dùng đã là lời
+     * đồng ý — nút ghi rõ "Xem quảng cáo để nhận X". Mọi trường hợp khác dùng
+     * [showRewardedWithOptIn]: AdMob cấm Rewarded tự bật lên mà người dùng chưa đồng ý.
      */
     fun showRewarded(
         activity: Activity,
@@ -171,6 +175,42 @@ object Ads {
         onClosed: () -> Unit = {},
     ) {
         AdManager.showRewarded(activity, adName, onReward, onClosed)
+    }
+
+    /**
+     * Hỏi người dùng trước rồi mới hiện Rewarded [adName] — hộp thoại nêu [title]/[message] (phần
+     * thưởng là gì) với hai nút [cancelText]/[confirmText] ngang hàng; back / chạm ra ngoài = huỷ.
+     *
+     * Ad chưa sẵn thì KHÔNG hiện hộp hỏi (hỏi xong mà không có gì để xem là hứa suông): preload
+     * cho lượt sau và gọi [onClosed] ngay, giống [showRewarded].
+     *
+     * [onClosed] LUÔN chạy đúng một lần — kể cả khi người dùng huỷ. [onReward] chỉ chạy khi đã
+     * đồng ý VÀ xem đủ. Module không mang chuỗi dịch nào: app truyền chuỗi đã dịch.
+     */
+    fun showRewardedWithOptIn(
+        activity: Activity,
+        adName: String,
+        title: String,
+        message: String,
+        confirmText: String,
+        cancelText: String,
+        onReward: () -> Unit,
+        onClosed: () -> Unit = {},
+    ) {
+        if (!AdManager.isRewardedReady(adName)) {
+            // showRewarded tự preload + gọi onClosed khi kho trống / quảng cáo tắt.
+            AdManager.showRewarded(activity, adName, onReward, onClosed)
+            return
+        }
+        RewardedOptInDialog.show(
+            activity = activity,
+            title = title,
+            message = message,
+            confirmText = confirmText,
+            cancelText = cancelText,
+            onConfirm = { AdManager.showRewarded(activity, adName, onReward, onClosed) },
+            onCancel = onClosed,
+        )
     }
 
     /** true nếu App Open [adName] đã load sẵn & chưa hết hạn (gọi [showAppOpen] sẽ hiện ngay). */
@@ -210,6 +250,26 @@ object Ads {
      */
     fun setupAppOpen(application: Application, adName: String) {
         AppOpenManager.register(application, adName)
+    }
+
+    /**
+     * Có cần hiện lối vào form "Privacy options" không — true với người dùng EEA/UK/CH. AdMob
+     * **bắt buộc** app có lối vào luôn truy cập được (thường là một dòng trong Settings) khi giá
+     * trị này là true; false thì ẩn dòng đó đi (mở ra chỉ được form rỗng kèm lỗi).
+     *
+     * Chỉ có nghĩa SAU khi [start] chạy xong lượt consent; gọi sớm hơn luôn trả false.
+     */
+    fun isPrivacyOptionsRequired(activity: Activity): Boolean =
+        runCatching { AdConsent.isPrivacyOptionsRequired(activity) }.getOrDefault(false)
+
+    /**
+     * Mở form "Privacy options" của UMP để người dùng đổi lại lựa chọn consent. Form đóng thì tự
+     * [refreshConsent]: phiên đang bị UMP chặn mà nay đã đồng ý thì init SDK ngay, rút consent
+     * thì chặn request ngay. [onClosed] nhận `true` khi quảng cáo vừa được gỡ chặn (app bật lại
+     * quảng cáo cho phiên này), luôn chạy đúng một lần kể cả khi form lỗi.
+     */
+    fun showPrivacyOptionsForm(activity: Activity, onClosed: (unblocked: Boolean) -> Unit = {}) {
+        AdConsent.showPrivacyOptionsForm(activity) { refreshConsent(activity, onClosed) }
     }
 
     /** true nếu đã đủ điều kiện request ad (consent obtained / không bắt buộc). */

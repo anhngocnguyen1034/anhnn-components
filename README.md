@@ -382,17 +382,22 @@ BannerAd(adName = "exit_banner")
 | `Ads.start(activity) { }` | Thu thập consent (UMP) + init Mobile Ads, xong gọi callback. UMP trả `canRequestAds() == false` thì KHÔNG init, mọi request bị chặn (callback vẫn chạy) |
 | `Ads.isConsentBlocked` | true nếu lượt `start` gần nhất bị UMP chặn — app nên coi như quảng cáo đang tắt |
 | `Ads.refreshConsent(activity) { unblocked -> }` | Gọi sau khi người dùng đổi consent (đóng form Privacy options): đang bị chặn mà nay được phép thì init SDK và báo `true` |
+| `Ads.isPrivacyOptionsRequired(activity)` | true với người dùng EEA/UK/CH ⇒ app **bắt buộc** có lối vào form Privacy options (thường là một dòng Settings); false thì ẩn dòng đó. Chỉ có nghĩa sau `start` |
+| `Ads.showPrivacyOptionsForm(activity) { unblocked -> }` | Mở form Privacy options của UMP; đóng form thì tự `refreshConsent`, `unblocked = true` khi quảng cáo vừa được gỡ chặn |
 | `SuppressesAppOpen` | Interface cho Activity: `suppressAppOpen = true` thì `Ads.setupAppOpen` không hiện App Open lúc đó (màn splash có App Open riêng, màn đang phát âm thanh...) |
 | `Ads.preload(context, vararg names)` | Nạp trước vào cache theo định dạng từng tên |
 | `Ads.isInterstitialReady(name)` | true nếu interstitial đã load sẵn |
 | `Ads.showInterstitial(activity, name) { }` | Hiện nếu sẵn (+cooldown), không thì callback ngay + preload lại |
+| `Ads.showRewarded(activity, name, onReward, onClosed)` | Hiện Rewarded NGAY — chỉ gọi thẳng khi cú bấm đã là lời đồng ý (nút ghi rõ "Xem quảng cáo để nhận X") |
+| `Ads.showRewardedWithOptIn(activity, name, title, message, confirmText, cancelText, onReward, onClosed)` | Hỏi người dùng (nêu rõ phần thưởng, hai nút ngang hàng, back = huỷ) rồi mới hiện Rewarded. Ad chưa sẵn thì không hỏi, `onClosed` ngay |
 | `Ads.canRequestAds(activity)` | true nếu đủ điều kiện request ad (consent) |
 | `Ads.clear()` | Hủy toàn bộ ad đang cache (vd khi mua gói no-ads) |
 | `Ads.loadAndShowInterstitial(activity, adName, style, loadingLabel, timeoutMs, onState, onClosed)` | **Nạp rồi mới hiện** — chưa có ad sẵn thì nạp ngay + hiện màn chờ, quá hạn thì bỏ qua. Dùng cho vị trí người dùng chỉ ghé một lần (preload không kịp) |
 | `AdState` | Trạng thái chi tiết của một lượt: `Loading/Loaded/Cached/Show/Click/Paid/Close/Timeout/Error/Skipped/Done`. `Done` luôn là cuối |
 | `AdLoadingStyle` | `None` / `Dialog` / `FullScreen` — màn chờ lúc nạp |
-| `NativeInterstitialTransition(adName, onContinue, delaySeconds)` | Native toàn màn thay interstitial, nút "Tiếp tục" mở sau đếm ngược |
-| `NativeAdContainer` + `NativeAdHeadlineView`/`BodyView`/`IconView`/`CallToActionView`/`MediaView`/`ChoicesView`/... | Tự dựng layout native bằng Compose thay cho 2 template cứng SMALL/MEDIUM |
+| `NativeInterstitialTransition(adName, onContinue, delaySeconds)` | Native toàn màn thay interstitial: nút ✕ hiện ngay từ đầu, nút "Tiếp tục" mở sau đếm ngược, nạp hỏng thì `onContinue` ngay |
+| `NativeAdContainer(adName, onFailed)` + `NativeAdHeadlineView`/`BodyView`/`IconView`/`CallToActionView`/`MediaView`/`ChoicesView`/`NativeAdBadge`/... | Tự dựng layout native bằng Compose thay cho 2 template cứng SMALL/MEDIUM. `onFailed` khi nạp hỏng / tắt quảng cáo |
+| `NativeAdBadge(modifier) { }` | Nhãn "Ad" bắt buộc; truyền content để vẽ theo giao diện app. Không đặt thì container **tự vẽ** nhãn mặc định ở góc trên-trái |
 | `NativeAd(adName, modifier)` | Composable native (cache-first, fallback inline, theme-aware) |
 | `BannerAd(adName, modifier, onFailedChange)` | Composable banner adaptive (load inline, full-width khung). `onFailedChange(true)` khi nạp hỏng (banner cao 0) để app bỏ phần đệm quanh nó |
 
@@ -405,7 +410,9 @@ Open ở splash. `Ads.setupAppOpen` bỏ qua lần "quay lại" giả do activit
 (dark mode, chia đôi màn hình, gập máy), lần quay lại sau khi bấm quảng cáo, không đếm activity
 của SDK quảng cáo, và hỏi `SuppressesAppOpen`. Native nằm trong kho quá 1 giờ bị huỷ và nạp lại.
 Trong slot của native tự dựng **không đặt composable clickable** (`Button`...): nó nuốt chạm và
-SDK không ghi nhận click.
+SDK không ghi nhận click. `NativeAdMediaView` luôn tối thiểu **120x120dp** dù modifier xin nhỏ
+hơn (AdMob bắt lỗi *"MediaView is too small for video"* — ad unit test ảnh tĩnh không lộ lỗi này).
+AdChoices ⓘ không thay được nhãn "Ad": thiếu `NativeAdBadge` thì container tự vẽ, không tắt được.
 
 ---
 

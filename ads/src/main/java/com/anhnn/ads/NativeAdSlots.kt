@@ -2,7 +2,12 @@ package com.anhnn.ads
 
 import android.view.View
 import android.widget.FrameLayout
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -10,10 +15,17 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.google.android.gms.ads.nativead.MediaView
 import com.google.android.gms.ads.nativead.NativeAdView
@@ -28,15 +40,19 @@ import com.google.android.gms.ads.nativead.NativeAd as GmsNativeAd
  * Với bộ này app muốn xếp thế nào cũng được, miễn mỗi tài sản nằm trong đúng slot của nó.
  *
  * **Luật của AdMob, không phải của module này**: mỗi tài sản (headline, icon, body, CTA, media)
- * phải nằm trong view đã đăng ký với [NativeAdView], và cụm "AdChoices" phải hiện. Đặt chữ
- * headline ra ngoài [NativeAdHeadlineView] thì ad vẫn vẽ ra nhưng **không tính click/doanh thu**
- * và có thể bị coi là vi phạm chính sách.
+ * phải nằm trong view đã đăng ký với [NativeAdView], cụm "AdChoices" phải hiện, và quảng cáo
+ * phải mang nhãn "Ad" nhìn thấy rõ. Đặt chữ headline ra ngoài [NativeAdHeadlineView] thì ad vẫn
+ * vẽ ra nhưng **không tính click/doanh thu** và có thể bị coi là vi phạm chính sách.
+ *
+ * Nhãn "Ad": đặt [NativeAdBadge] ở chỗ mình muốn. Quên đặt thì [NativeAdContainer] tự vẽ nhãn
+ * mặc định ở góc trên-trái — AdChoices ⓘ KHÔNG thay được nhãn này, thiếu nhãn là vi phạm.
  *
  * ```
  * NativeAdContainer(adName = "home_native") { ad ->
  *     Row(Modifier.background(AppTheme.colors.surfaceCard)) {
  *         NativeAdIconView { AppImage(ad.icon?.drawable) }
  *         Column {
+ *             NativeAdBadge()
  *             NativeAdHeadlineView { AppText(ad.headline.orEmpty()) }
  *             NativeAdBodyView { AppText(ad.body.orEmpty()) }
  *         }
@@ -63,21 +79,33 @@ val LocalNativeAdView = compositionLocalOf<NativeAdView?> { null }
  */
 val LocalNativeAd = compositionLocalOf<GmsNativeAd?> { null }
 
+/** Khối native đang dựng đã tự đặt [NativeAdBadge] chưa — chưa thì [NativeAdRoot] vẽ nhãn mặc định. */
+private class AdBadgeTracker {
+    // Biến thường, KHÔNG phải state: chỉ được đọc ngay sau `content()` trong cùng lượt composition
+    // (xem [NativeAdRoot]). Dùng state + effect thì frame đầu chưa kịp ghi nhận ⇒ hai nhãn chồng nhau.
+    var placed = false
+}
+
+private val LocalAdBadgeTracker = compositionLocalOf<AdBadgeTracker?> { null }
+
 /**
  * Khung ngoài của một native ad tự dựng: lo nạp ad (ưu tiên cache, không có thì load inline),
  * tạo [NativeAdView] bọc ngoài và hủy ad khi rời màn.
  *
  * [content] chỉ được gọi khi đã có ad. Đang nạp thì vẽ [loading] (mặc định: không chiếm chỗ),
- * nạp hỏng / tắt quảng cáo thì không vẽ gì.
+ * nạp hỏng / tắt quảng cáo thì không vẽ gì và gọi [onFailed] — màn nào dành riêng chỗ cho quảng
+ * cáo (vd native toàn màn) thì dựa vào đó để không giữ người dùng trước một khung trống.
  */
 @Composable
 fun NativeAdContainer(
     adName: String,
     modifier: Modifier = Modifier,
     loading: @Composable () -> Unit = {},
+    onFailed: () -> Unit = {},
     content: @Composable (GmsNativeAd) -> Unit,
 ) {
     val context = LocalContext.current
+    val currentOnFailed by rememberUpdatedState(onFailed)
     var nativeAd by remember { mutableStateOf<GmsNativeAd?>(null) }
     var isLoading by remember { mutableStateOf(true) }
 
@@ -101,7 +129,12 @@ fun NativeAdContainer(
                         isLoading = false
                     }
                 },
-                onFailed = { isLoading = false },
+                onFailed = {
+                    if (!disposed) {
+                        isLoading = false
+                        currentOnFailed()
+                    }
+                },
             )
         }
         onDispose {
@@ -151,10 +184,21 @@ private fun NativeAdRoot(
         update = { adView ->
             val composeView = adView.getChildAt(0) as ComposeView
             composeView.setContent {
+                val badge = remember(ad) { AdBadgeTracker() }
                 CompositionLocalProvider(
                     LocalNativeAdView provides adView,
                     LocalNativeAd provides ad,
-                ) { content() }
+                    LocalAdBadgeTracker provides badge,
+                ) {
+                    Box {
+                        content()
+                        // Đọc SAU content(): cùng một lượt composition nên [NativeAdBadge] (nếu
+                        // app có đặt) đã chạy xong. App quên đặt thì vẫn có nhãn — không opt-out được.
+                        if (!badge.placed) {
+                            DefaultAdBadgeLabel(Modifier.align(Alignment.TopStart).padding(6.dp))
+                        }
+                    }
+                }
             }
             // `post` chứ KHÔNG gọi thẳng: AdMob yêu cầu đăng ký xong MỌI view tài sản rồi mới
             // `setNativeAd`. Nội dung bên trong là một composition con, các slot chỉ đăng ký ở
@@ -230,13 +274,19 @@ fun NativeAdStarRatingView(modifier: Modifier = Modifier, content: @Composable (
 /**
  * Ảnh/video quảng cáo. Khác các slot trên: nội dung do SDK tự vẽ ([MediaView]) nên không nhận
  * `content` — app chỉ quyết định kích thước bằng [modifier].
+ *
+ * Luôn tối thiểu **120x120dp** dù [modifier] xin nhỏ hơn: AdMob bắt lỗi *"MediaView is too small
+ * for video"* dưới mức đó. Test bằng ad unit native mặc định (ảnh tĩnh) KHÔNG lộ lỗi này, phải
+ * dùng native ad validator với ad unit video.
  */
 @Composable
 fun NativeAdMediaView(modifier: Modifier = Modifier) {
     val adView = LocalNativeAdView.current
     val ad = LocalNativeAd.current
     AndroidView(
-        modifier = modifier,
+        // Sàn đặt TRƯỚC modifier của app: `height(80.dp)` phía sau bị kẹp lên 120, còn
+        // `height(140.dp)` thì giữ nguyên.
+        modifier = Modifier.sizeIn(minWidth = MEDIA_MIN_DP.dp, minHeight = MEDIA_MIN_DP.dp).then(modifier),
         factory = { ctx -> MediaView(ctx) },
         update = { media ->
             adView?.mediaView = media
@@ -257,4 +307,36 @@ fun NativeAdChoicesView(modifier: Modifier = Modifier) {
         factory = { ctx -> com.google.android.gms.ads.nativead.AdChoicesView(ctx) },
         update = { view -> adView?.adChoicesView = view },
     )
+}
+
+/** Cạnh nhỏ nhất AdMob chấp nhận cho [MediaView]. */
+private const val MEDIA_MIN_DP = 120
+
+/**
+ * Nhãn "Ad" — AdMob bắt buộc quảng cáo native được đánh dấu rõ ràng. Đặt ở bất kỳ đâu trong
+ * [NativeAdContainer]; không đặt thì container tự vẽ nhãn mặc định ở góc trên-trái.
+ *
+ * [content] để app vẽ nhãn theo giao diện riêng (chữ dịch "Quảng cáo", màu thương hiệu...).
+ * Nhãn phải đọc được: tương phản rõ với nền, chữ đủ lớn — nhãn mờ/lẫn màu bị coi như không có.
+ */
+@Composable
+fun NativeAdBadge(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit = { DefaultAdBadgeLabel() },
+) {
+    LocalAdBadgeTracker.current?.placed = true
+    Box(modifier = modifier) { content() }
+}
+
+/** Nhãn mặc định: nền tối + chữ trắng đậm (tương phản ~17:1), đọc được trên nền sáng lẫn tối. */
+@Composable
+private fun DefaultAdBadgeLabel(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(Color(0xFF1C1C1E))
+            .padding(horizontal = 6.dp, vertical = 1.dp),
+    ) {
+        Text(text = "Ad", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    }
 }
