@@ -22,7 +22,7 @@ android {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.17.0")
-    implementation(platform("androidx.compose:compose-bom:2024.09.00"))
+    implementation(platform("androidx.compose:compose-bom:2026.03.01"))
     implementation("androidx.compose.runtime:runtime")
     // NavController + OnDestinationChangedListener cho helper TrackScreenViews.
     implementation("androidx.navigation:navigation-compose:2.8.9")
